@@ -16,6 +16,7 @@ ADMIN_USER_ID = os.environ.get('ADMIN_USER_ID')  # معرفك الشخصي في 
 
 # تهيئة Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel(name="gemini-2")
 
 # تهيئة بوت تليغرام
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -53,7 +54,7 @@ def run_bot():
 إذا كان السؤال معقداً ويحتاج شرحاً أطول قليلاً، لا تتردد في التوضيح باعتدال.
 
 السؤال هو: {message_text}"""
-                    response = genai.generate(model="gemini-2.0", prompt=prompt, max_output_tokens=200)
+                    response = model.generate(prompt=prompt, max_output_tokens=200)
                     response_text = response["candidates"][0]["output"]
 
                     if len(response_text.split('\n')) > 5:
@@ -80,7 +81,7 @@ def run_bot():
 إذا كان السؤال معقداً ويحتاج شرحاً أطول قليلاً، لا تتردد في التوضيح باعتدال.
 
 السؤال هو: {command}"""
-                        response = genai.generate(model="gemini-2", prompt=prompt, max_output_tokens=200)
+                        response = model.generate(prompt=prompt, max_output_tokens=200)
                         response_text = response["candidates"][0]["output"]
                     else:
                         response_text = "Please mention your question or command after my name."
@@ -90,7 +91,7 @@ def run_bot():
 إذا كان السؤال معقداً ويحتاج شرحاً أطول قليلاً، لا تتردد في التوضيح باعتدال.
 
 السؤال هو: {message_text}"""
-                    response = genai.generate(model="gemini-2", prompt=prompt, max_output_tokens=200)
+                    response = model.generate(prompt=prompt, max_output_tokens=200)
                     response_text = response["candidates"][0]["output"]
 
             if response_text:
