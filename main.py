@@ -16,7 +16,6 @@ ADMIN_USER_ID = os.environ.get('ADMIN_USER_ID')  # معرفك الشخصي في 
 
 # تهيئة Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.0-flash")
 
 # تهيئة بوت تليغرام
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -54,18 +53,16 @@ def run_bot():
 إذا كان السؤال معقداً ويحتاج شرحاً أطول قليلاً، لا تتردد في التوضيح باعتدال.
 
 السؤال هو: {message_text}"""
-                    response = model.generate_content(prompt=prompt, max_output_tokens=200)
-                    response_text = response.text if hasattr(response, 'text') else str(response.candidates[0].content.parts[0].text)
+                    response = genai.generate(model="gemini-2.0", prompt=prompt, max_output_tokens=200)
+                    response_text = response["candidates"][0]["output"]
 
-                    # تقليل حجم الرد إذا كان طويلاً
                     if len(response_text.split('\n')) > 5:
                         response_text = '\n'.join(response_text.split('\n')[:5]) + "..."
                     
                     bot.send_message(message.chat.id, response_text)
                 else:
-                    # إرسال رسالة توضيحية لأي شخص آخر يحاول مراسلة البوت
                     bot.send_message(message.chat.id, "هذا البوت خاص بمجموعة تليغرام وليس عاماً. لا يمكنك استخدامه هنا.")
-                return  # إنهاء الدالة هنا لمنع الاستمرار في المعالجة
+                return
 
             # التحقق من سؤال عن الاسم
             name_query_pattern = r"\b(what('s|\s?is)? your name|who are you|your name\?|what is your name|may I know your name|ما\s*اسمك|اسمك)\b"
@@ -74,7 +71,6 @@ def run_bot():
                 return
 
             response_text = ""
-            # التعامل مع الرسائل داخل المجموعة فقط
             if chat_id == GROUP_CHAT_ID:
                 if bot_nickname.lower() in message_text.lower() or "genie" in message_text.lower():
                     command = message_text.replace(bot_nickname, "").strip()
@@ -84,8 +80,8 @@ def run_bot():
 إذا كان السؤال معقداً ويحتاج شرحاً أطول قليلاً، لا تتردد في التوضيح باعتدال.
 
 السؤال هو: {command}"""
-                        response = model.generate_content(prompt=prompt, max_output_tokens=200)
-                        response_text = response.text if hasattr(response, 'text') else str(response.candidates[0].content.parts[0].text)
+                        response = genai.generate(model="gemini-2", prompt=prompt, max_output_tokens=200)
+                        response_text = response["candidates"][0]["output"]
                     else:
                         response_text = "Please mention your question or command after my name."
                 elif any(keyword in message_text.lower() for keyword in keywords):
@@ -94,8 +90,8 @@ def run_bot():
 إذا كان السؤال معقداً ويحتاج شرحاً أطول قليلاً، لا تتردد في التوضيح باعتدال.
 
 السؤال هو: {message_text}"""
-                    response = model.generate_content(prompt=prompt, max_output_tokens=200)
-                    response_text = response.text if hasattr(response, 'text') else str(response.candidates[0].content.parts[0].text)
+                    response = genai.generate(model="gemini-2", prompt=prompt, max_output_tokens=200)
+                    response_text = response["candidates"][0]["output"]
 
             if response_text:
                 if len(response_text.split('\n')) > 5:
