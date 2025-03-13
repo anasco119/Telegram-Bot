@@ -11,6 +11,7 @@ keep_alive()
 # Get API keys and user ID from environment variables
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+GROUP_CHAT_ID = os.environ.get('GROUP_CHAT_ID')
 ALLOWED_USER_ID = int(os.environ.get('USER_ID'))  # اجعل هذا متغير بيئة في Render أو أي خدمة تستخدمها
 
 # Initialize Gemini API
