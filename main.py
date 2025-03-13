@@ -38,9 +38,6 @@ keywords = ["translate", "meaning", "grammar", "vocabulary", "explain"]
 # Bot nickname to be mentioned in group
 bot_nickname = "@Genie"
 
-# Group chat ID where the bot will operate
-group_chat_id = "-1002278148474"
-
 def generate_gemini_response(prompt):
     try:
         response = model.chat(messages=[{"role": "user", "content": prompt}])
@@ -65,7 +62,7 @@ def run_bot():
                 return
 
             # Group chat handling
-            if chat_id == group_chat_id:
+            if chat_id == GROUP_CHAT_ID:
                 if bot_nickname.lower() in message_text.lower() or "genie" in message_text.lower():
                     command = message_text.replace(bot_nickname, "").strip()
                     if command:
