@@ -1,5 +1,51 @@
-# معرف المستخدم الخاص بك (يمكنك معرفته عبر طباعة message.from_user.id في رسالة تجريبية)
-allowed_user_id = 7822622023  # ضع معرفك هنا
+import telebot
+import google.generativeai as genai
+from flask import Flask
+import threading
+import os
+from keep_alive import keep_alive
+import re
+
+keep_alive()
+
+# Get API keys and user ID from environment variables
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+ALLOWED_USER_ID = int(os.environ.get('USER_ID'))  # اجعل هذا متغير بيئة في Render أو أي خدمة تستخدمها
+
+# Initialize Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.models.get("models/chat-bison-001")
+
+# Initialize Telegram bot
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+
+# Create Flask server
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+@app.route('/health')
+def health():
+    return "OK"
+
+# Keyword list for group auto-responses
+keywords = ["translate", "meaning", "grammar", "vocabulary", "explain"]
+
+# Bot nickname to be mentioned in group
+bot_nickname = "@Genie"
+
+# Group chat ID where the bot will operate
+group_chat_id = "-1002278148474"
+
+def generate_gemini_response(prompt):
+    try:
+        response = model.chat(messages=[{"role": "user", "content": prompt}])
+        return response.messages[0]['content'] if response.messages else "No response from Gemini."
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 def run_bot():
     @bot.message_handler(func=lambda message: True)
@@ -10,7 +56,7 @@ def run_bot():
 
             # Private chat handling
             if message.chat.type == "private":
-                if message.from_user.id == allowed_user_id:
+                if message.from_user.id == ALLOWED_USER_ID:
                     response_text = generate_gemini_response(message_text)
                     bot.send_message(message.chat.id, response_text)
                 else:
@@ -38,3 +84,11 @@ def run_bot():
 
         except Exception as e:
             bot.send_message(message.chat.id, f"Error: {str(e)}")
+
+    bot.polling()
+
+bot_thread = threading.Thread(target=run_bot)
+bot_thread.start()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
