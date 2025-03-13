@@ -1,5 +1,5 @@
 # معرف المستخدم الخاص بك (يمكنك معرفته عبر طباعة message.from_user.id في رسالة تجريبية)
-allowed_user_id = 123456789  # ضع معرفك هنا
+allowed_user_id = 7822622023  # ضع معرفك هنا
 
 def run_bot():
     @bot.message_handler(func=lambda message: True)
