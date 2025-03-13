@@ -12,11 +12,14 @@ keep_alive()
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 GROUP_CHAT_ID = os.environ.get('GROUP_CHAT_ID')
-ALLOWED_USER_ID = int(os.environ.get('USER_ID'))  # اجعل هذا متغير بيئة في Render أو أي خدمة تستخدمها
+USER_ID = os.environ.get('USER_ID')  # يُفترض أن يكون نصًا
+
+# تحقق من وجود القيم المطلوبة
+if not all([GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, GROUP_CHAT_ID, USER_ID]):
+    raise ValueError("يرجى التأكد من إعداد جميع متغيرات البيئة المطلوبة!")
 
 # Initialize Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.models.get("models/chat-bison-001")
 
 # Initialize Telegram bot
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -40,25 +43,31 @@ bot_nickname = "@Genie"
 
 def generate_gemini_response(prompt):
     try:
-        response = model.chat(messages=[{"role": "user", "content": prompt}])
-        return response.messages[0]['content'] if response.messages else "No response from Gemini."
+        response = genai.chat(model="models/chat-bison-001", messages=[{"role": "user", "content": prompt}])
+        if response and response.messages:
+            return response.messages[0]['content']
+        else:
+            return "لم يتمكن البوت من توليد استجابة."
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"خطأ في الاتصال بـ Gemini: {str(e)}"
 
 def run_bot():
     @bot.message_handler(func=lambda message: True)
     def chat_with_gemini(message):
         try:
             chat_id = str(message.chat.id)
+            user_id = str(message.from_user.id)
             message_text = message.text
+
+            print(f"📩 Received message from {user_id} in chat {chat_id}: {message_text}")
 
             # Private chat handling
             if message.chat.type == "private":
-                if message.from_user.id == ALLOWED_USER_ID:
+                if user_id == USER_ID:
                     response_text = generate_gemini_response(message_text)
                     bot.send_message(message.chat.id, response_text)
                 else:
-                    bot.send_message(message.chat.id, "هذا البوت خاص بالمجموعة فقط وليس للاستخدام الخاص.")
+                    bot.send_message(message.chat.id, "🚫 هذا البوت خاص بالمجموعة فقط وليس للاستخدام الخاص.")
                 return
 
             # Group chat handling
@@ -67,21 +76,15 @@ def run_bot():
                     command = message_text.replace(bot_nickname, "").strip()
                     if command:
                         response_text = generate_gemini_response(command)
-                        if response_text.count('\n') <= 5:
-                            bot.send_message(message.chat.id, response_text)
-                        else:
-                            bot.send_message(message.chat.id, "الإجابة طويلة جدًا، يُرجى توضيح السؤال بشكل أدق.")
-                    else:
-                        bot.send_message(message.chat.id, "Please mention your question or command after my name.")
-                elif any(keyword in message_text.lower() for keyword in keywords):
-                    response_text = generate_gemini_response(message_text)
-                    if response_text.count('\n') <= 5:
                         bot.send_message(message.chat.id, response_text)
                     else:
-                        bot.send_message(message.chat.id, "الإجابة طويلة جدًا، يُرجى توضيح السؤال بشكل أدق.")
+                        bot.send_message(message.chat.id, "⚠️ يرجى كتابة سؤالك أو طلبك بعد ذكر اسمي.")
+                elif any(keyword in message_text.lower() for keyword in keywords):
+                    response_text = generate_gemini_response(message_text)
+                    bot.send_message(message.chat.id, response_text)
 
         except Exception as e:
-            bot.send_message(message.chat.id, f"Error: {str(e)}")
+            bot.send_message(message.chat.id, f"❌ Error: {str(e)}")
 
     bot.polling()
 
