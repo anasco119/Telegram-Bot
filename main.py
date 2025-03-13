@@ -12,7 +12,7 @@ keep_alive()
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 GROUP_CHAT_ID = os.environ.get('GROUP_CHAT_ID')
-USER_ID = os.environ.get('USER_ID')  # يُفترض أن يكون نصًا
+USER_ID = os.environ.get('USER_ID')  # يجب أن يكون نصًا
 
 # تحقق من وجود القيم المطلوبة
 if not all([GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, GROUP_CHAT_ID, USER_ID]):
@@ -43,11 +43,16 @@ bot_nickname = "@Genie"
 
 def generate_gemini_response(prompt):
     try:
-        response = genai.chat(model="models/chat-bison-001", messages=[{"role": "user", "content": prompt}])
+        response = genai.generate_chat_message(
+            model="chat-bison-001",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
         if response and response.messages:
             return response.messages[0]['content']
         else:
             return "لم يتمكن البوت من توليد استجابة."
+        
     except Exception as e:
         return f"خطأ في الاتصال بـ Gemini: {str(e)}"
 
