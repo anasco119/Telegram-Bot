@@ -41,7 +41,7 @@ def webhook():
         
 def generate_gemini_response(prompt):
 try:
-model = genai.GenerativeModel('gemini-2.0-flash')
+model = genai.GenerativeModel('gemini-1.5-pro')
 response = model.generate_content(prompt)
 return response.text if response.text else "No response from Gemini."
 except Exception as e:
