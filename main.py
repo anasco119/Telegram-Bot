@@ -29,14 +29,13 @@ def health():
 # إعداد Webhook للبوت
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # ضع رابط الـ Render هنا مع مسار webhook
 
-# دالة استدعاء Gemini بشكل صحيح
-def generate_gemini_response(prompt):
-    try:
-        # تأكد من استخدام generate_content بشكل صحيح
-        response = genai.generate_content(model='models/gemini-2.0', prompt=prompt)
-        return response.generations[0].text if response.generations else "No response from Gemini."
-    except Exception as e:
-        return f"Error: {str(e)}"
+# إنشاء نموذج GenerativeModel
+model = genai.GenerativeModel('gemini-1.5-pro')
+# استدعاء التفاعل مع Gemini باستخدام طريقة generate_content
+response = model.generate_content(prompt)
+return response.text if response.text else "No response from Gemini."
+except Exception as e:
+return f"Error: {str(e)}"
 
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=['POST'])
 def webhook():
