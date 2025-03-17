@@ -38,6 +38,14 @@ def webhook():
         return 'OK', 200
     else:
         abort(403)
+        
+def generate_gemini_response(prompt):
+try:
+model = genai.GenerativeModel('gemini-2.5-flash')
+response = model.generate_content(prompt)
+return response.text if response.text else "No response from Gemini."
+except Exception as e:
+return f"Error: {str(e)}"
 
 @bot.message_handler(func=lambda message: True)
 def chat_with_gemini(message):
