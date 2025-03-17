@@ -39,20 +39,13 @@ def webhook():
     else:
         abort(403)
 
-def generate_gemini_response(prompt):
-    try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(prompt)
-        return response.text if response.text else "No response from Gemini."
-    except Exception as e:
-        return f"Error: {str(e)}"
-
 @bot.message_handler(func=lambda message: True)
 def chat_with_gemini(message):
     try:
         chat_id = str(message.chat.id)
-        message_text = message.text
+        message_text = message.text.lower()  # تحويل النص إلى حروف صغيرة لتجاهل حساسية حالة الأحرف
 
+        # التعامل مع المحادثات الخاصة
         if message.chat.type == "private":
             if message.from_user.id == ALLOWED_USER_ID:
                 response_text = generate_gemini_response(message_text)
@@ -61,8 +54,10 @@ def chat_with_gemini(message):
                 bot.send_message(message.chat.id, "هذا البوت مخصص للاستخدام في المجموعة فقط.")
             return
 
+        # التعامل مع محادثات المجموعة
         if chat_id == GROUP_CHAT_ID:
-            if "@Genie" in message_text or any(keyword in message_text.lower() for keyword in ["translate", "meaning", "grammar", "vocabulary", "explain"]):
+            # التحقق من وجود اسم البوت أو كلمات رئيسية محددة في الرسالة
+            if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
                 response_text = generate_gemini_response(message_text)
                 bot.send_message(message.chat.id, response_text)
 
