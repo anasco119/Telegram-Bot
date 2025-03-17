@@ -70,6 +70,12 @@ def chat_with_gemini(message):
         bot.send_message(message.chat.id, f"حدث خطأ: {str(e)}")
 
 if __name__ == "__main__":
+    # إعداد المنفذ من المتغيرات البيئية أو استخدام 8080 كقيمة افتراضية
+    port = int(os.getenv('PORT', 8080))
+    
+    # إعداد الـ Webhook
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
-    app.run(host="0.0.0.0", port=8080)
+
+    # تشغيل التطبيق على Render
+    app.run(host="0.0.0.0", port=port)
