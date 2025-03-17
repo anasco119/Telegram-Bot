@@ -31,11 +31,14 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # ضع رابط الـ Render هنا م�
 
 # إنشاء نموذج GenerativeModel
 model = genai.GenerativeModel('gemini-1.5-pro')
-# استدعاء التفاعل مع Gemini باستخدام طريقة generate_content
-response = model.generate_content(prompt)
-return response.text if response.text else "No response from Gemini."
-except Exception as e:
-return f"Error: {str(e)}"
+
+def generate_gemini_response(prompt):
+    try:
+        # استدعاء التفاعل مع Gemini باستخدام طريقة generate_content
+        response = model.generate_content(prompt)
+        return response.text if response.text else "No response from Gemini."
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=['POST'])
 def webhook():
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     
     # إعداد الـ Webhook
     bot.remove_webhook()
-    bot.set_webhook(url=f"https://telegram-bot-qzmd.onrender.com/{TELEGRAM_BOT_TOKEN}")
+    bot.set_webhook(url=f"{WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}")
 
     # تشغيل التطبيق على Render
     app.run(host="0.0.0.0", port=port)
