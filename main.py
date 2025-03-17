@@ -38,14 +38,15 @@ def webhook():
         return 'OK', 200
     else:
         abort(403)
-        
+
+# دالة استدعاء Gemini بشكل صحيح
 def generate_gemini_response(prompt):
-try:
-model = genai.GenerativeModel('gemini-1.5-pro')
-response = model.generate_content(prompt)
-return response.text if response.text else "No response from Gemini."
-except Exception as e:
-return f"Error: {str(e)}"
+    try:
+        model = genai.get_model(name='gemini-2.0-flash')  # تأكد من استخدام get_model وليس GenerativeModel
+        response = model.generate_content(prompt)
+        return response.text if response.text else "No response from Gemini."
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 @bot.message_handler(func=lambda message: True)
 def chat_with_gemini(message):
@@ -64,7 +65,6 @@ def chat_with_gemini(message):
 
         # التعامل مع محادثات المجموعة
         if chat_id == GROUP_CHAT_ID:
-            # التحقق من وجود اسم البوت أو كلمات رئيسية محددة في الرسالة
             if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
                 response_text = generate_gemini_response(message_text)
                 bot.send_message(message.chat.id, response_text)
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     
     # إعداد الـ Webhook
     bot.remove_webhook()
-    bot.set_webhook(url="https://telegram-bot-qzmd.onrender.com/" + TELEGRAM_BOT_TOKEN)
+    bot.set_webhook(url=f"https://telegram-bot-qzmd.onrender.com/{TELEGRAM_BOT_TOKEN}")
 
     # تشغيل التطبيق على Render
     app.run(host="0.0.0.0", port=port)
