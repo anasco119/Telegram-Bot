@@ -28,7 +28,13 @@ def health():
 
 # إعداد Webhook للبوت
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # ضع رابط الـ Render هنا مع مسار webhook
-
+# دالة استدعاء Gemini بشكل صحيح
+def generate_gemini_response(prompt):
+    try:
+        response = genai.generate(model='models/gemini-2.0', prompt=prompt)  # استخدم genai.generate() بشكل مباشر
+        return response.generations[0].text if response.generations else "No response from Gemini."
+    except Exception as e:
+        return f"Error: {str(e)}"
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -38,39 +44,6 @@ def webhook():
         return 'OK', 200
     else:
         abort(403)
-
-# دالة استدعاء Gemini بشكل صحيح
-def generate_gemini_response(prompt):
-    try:
-        model = genai.get_model(name='gemini-2.0-flash')  # تأكد من استخدام get_model وليس GenerativeModel
-        response = model.generate_content(prompt)
-        return response.text if response.text else "No response from Gemini."
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-@bot.message_handler(func=lambda message: True)
-def chat_with_gemini(message):
-    try:
-        chat_id = str(message.chat.id)
-        message_text = message.text.lower()  # تحويل النص إلى حروف صغيرة لتجاهل حساسية حالة الأحرف
-
-        # التعامل مع المحادثات الخاصة
-        if message.chat.type == "private":
-            if message.from_user.id == ALLOWED_USER_ID:
-                response_text = generate_gemini_response(message_text)
-                bot.send_message(message.chat.id, response_text)
-            else:
-                bot.send_message(message.chat.id, "هذا البوت مخصص للاستخدام في المجموعة فقط.")
-            return
-
-        # التعامل مع محادثات المجموعة
-        if chat_id == GROUP_CHAT_ID:
-            if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
-                response_text = generate_gemini_response(message_text)
-                bot.send_message(message.chat.id, response_text)
-
-    except Exception as e:
-        bot.send_message(message.chat.id, f"حدث خطأ: {str(e)}")
 
 if __name__ == "__main__":
     # إعداد المنفذ من المتغيرات البيئية أو استخدام 8080 كقيمة افتراضية
