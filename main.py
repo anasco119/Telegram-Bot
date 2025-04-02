@@ -186,7 +186,7 @@ def main():
         listen="0.0.0.0",
         port=PORT,
         url_path=token,
-        webhook_url=f"{WEBHOOK_URL}/{TOKEN}"  # تعيين عنوان الويب هوك
+        webhook_url=f"{WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}"  # تعيين عنوان الويب هوك
     )
 
 if __name__ == "__main__":
