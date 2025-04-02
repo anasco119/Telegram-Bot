@@ -20,6 +20,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('CHANNEL_ID')  # معرف القناة
 GROUP_ID = os.getenv('GROUP_ID')  # معرف المجموعة
 ALLOWED_USER_ID = int(os.getenv('USER_ID'))
+WEBHOOK_URL = int(os.getenv('WEBHOOK_URL'))
 
 # تهيئة مكتبة Gemini
 try:
@@ -169,12 +170,16 @@ def chat_with_gemini(message):
         logging.error(f"Error in chat_with_gemini: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 
+# دالة رئيسية لتشغيل البوت
+def main():
+    logging.info("✅ البوت يعمل الآن...")
+    PORT = int(os.environ.get("PORT", 8080))  # الحصول على المنفذ من البيئة أو استخدام 8080 افتراضيًا
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=f"{WEBHOOK_URL}/{TOKEN}"  # تعيين عنوان الويب هوك
+    )
+
 if __name__ == "__main__":
-    # إعداد المنفذ من المتغيرات البيئية أو استخدام 8080 كقيمة افتراضية
-    port = int(os.getenv('PORT', 8080))
-    
-        # إعداد الـ Webhook
-    bot.remove_webhook()
-    bot.set_webhook(url=f"https://telegram-bot-enw9.onrender.com/{TELEGRAM_BOT_TOKEN}")
-    # تشغيل التطبيق على Render
-    app.run(host="0.0.0.0", port=port)
+    main()
