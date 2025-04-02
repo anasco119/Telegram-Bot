@@ -185,7 +185,7 @@ def main():
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        url_path=TOKEN,
+        url_path=token,
         webhook_url=f"{WEBHOOK_URL}/{TOKEN}"  # تعيين عنوان الويب هوك
     )
 
