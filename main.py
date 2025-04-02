@@ -177,7 +177,7 @@ def chat_with_gemini(message):
         logging.error(f"Error in chat_with_gemini: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 # إنشاء البوت
-app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+app = ApplicationBuilder().TOKEN(TELEGRAM_BOT_TOKEN).build()
 # دالة رئيسية لتشغيل البوت
 def main():
     logging.info("✅ البوت يعمل الآن...")
