@@ -43,7 +43,7 @@ def health():
     return "OK"
 
 # إنشاء نموذج GenerativeModel
-model = genai.GenerativeModel('gemini-2.0-flash')
+model = genai.GenerativeModel('gemini-1.5-pro')
 
 def generate_gemini_response(prompt):
     try:
