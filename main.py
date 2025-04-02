@@ -179,14 +179,13 @@ def chat_with_gemini(message):
 # استبدال TOKEN بـ TELEGRAM_BOT_TOKEN
 app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-# دالة رئيسية لتشغيل البوت
 def main():
     logging.info("✅ البوت يعمل الآن...")
     PORT = int(os.environ.get("PORT", 8080))  # الحصول على المنفذ من البيئة أو استخدام 8080 افتراضيًا
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        url_path=token,
+        url_path=TELEGRAM_BOT_TOKEN,  # تم التصحيح هنا
         webhook_url=f"{WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}"  # تعيين عنوان الويب هوك
     )
 
