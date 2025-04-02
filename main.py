@@ -31,16 +31,6 @@ except Exception as e:
 # تهيئة بوت Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# إنشاء تطبيق Flask
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-@app.route('/health')
-def health():
-    return "OK"
 
 # إنشاء نموذج GenerativeModel
 model = genai.GenerativeModel('gemini-1.5-pro')
