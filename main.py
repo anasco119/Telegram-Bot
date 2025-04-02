@@ -1,6 +1,13 @@
 import os
 import google.generativeai as genai
 import telebot
+from telegram.ext import (
+    ApplicationBuilder,
+    MessageHandler,
+    CommandHandler,  # أضف هذا
+    filters,
+    ContextTypes
+)
 import re
 import logging
 
@@ -169,7 +176,8 @@ def chat_with_gemini(message):
     except Exception as e:
         logging.error(f"Error in chat_with_gemini: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
-
+# إنشاء البوت
+app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 # دالة رئيسية لتشغيل البوت
 def main():
     logging.info("✅ البوت يعمل الآن...")
