@@ -32,9 +32,9 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 # تهيئة مكتبة Gemini
 try:
     genai.configure(api_key=GEMINI_API_KEY)
+    logging.info("Gemini configured successfully")
 except Exception as e:
     logging.error(f"Error configuring Gemini: {e}")
-
 # تهيئة بوت Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
