@@ -20,7 +20,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('CHANNEL_ID')  # معرف القناة
 GROUP_ID = os.getenv('GROUP_ID')  # معرف المجموعة
 ALLOWED_USER_ID = int(os.getenv('USER_ID'))
-WEBHOOK_URL = int(os.getenv('WEBHOOK_URL'))
+WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 # تهيئة مكتبة Gemini
 try:
