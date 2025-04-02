@@ -186,6 +186,6 @@ if __name__ == "__main__":
     
         # إعداد الـ Webhook
     bot.remove_webhook()
-    bot.set_webhook(url=f"https://telegram-bot-qzmd.onrender.com/{TELEGRAM_BOT_TOKEN}")
+    bot.set_webhook(url=f"https://telegram-bot-enw9.onrender.com/{TELEGRAM_BOT_TOKEN}")
     # تشغيل التطبيق على Render
     app.run(host="0.0.0.0", port=port)
