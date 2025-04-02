@@ -2,7 +2,6 @@ import os
 import google.generativeai as genai
 import telebot
 import re
-from flask import Flask, request, abort
 import logging
 
 # إعداد سجل الأخطاء
