@@ -30,6 +30,7 @@ except Exception as e:
     logging.error(f"Error configuring Gemini: {e}")
 # تهيئة بوت Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+app = Flask(__name__)
 
 
 # إنشاء نموذج GenerativeModel
@@ -169,18 +170,23 @@ def chat_with_gemini(message):
     except Exception as e:
         logging.error(f"Error in chat_with_gemini: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
-# استبدال TOKEN بـ TELEGRAM_BOT_TOKEN
-app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+        
+@app.route('/' + TELEGRAM_BOT_TOKEN, methods=['POST'])
+def webhook():
+    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+    bot.process_new_updates([update])
+    return 'ok', 200
 
-def main():
-    logging.info("✅ البوت يعمل الآن...")
-    PORT = int(os.environ.get("PORT", 8080))  # الحصول على المنفذ من البيئة أو استخدام 8080 افتراضيًا
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TELEGRAM_BOT_TOKEN,  # تم التصحيح هنا
-        webhook_url=f"{WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}"  # تعيين عنوان الويب هوك
-    )
+def set_webhook():
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL + '/' + TELEGRAM_BOT_TOKEN)
+    logging.info(f"🌍 تم تعيين الويب هوك على: {WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        logging.info("🚀 بدء تشغيل البوت...")
+        set_webhook()
+        PORT = int(os.environ.get('PORT', 5000))
+        app.run(host='0.0.0.0', port=PORT)
+    except Exception as e:
+        logging.error(f"❌ فشل تشغيل البوت: {e}")
