@@ -1,13 +1,6 @@
 import os
 import google.generativeai as genai
 import telebot
-from telegram.ext import (
-    ApplicationBuilder,
-    MessageHandler,
-    CommandHandler,  # أضف هذا
-    filters,
-    ContextTypes
-)
 import re
 import logging
 
