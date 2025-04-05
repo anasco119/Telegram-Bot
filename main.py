@@ -33,6 +33,11 @@ except Exception as e:
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 app = Flask(__name__)
 
+# نقطة نهاية أساسية للتحقق من عمل الخادم
+@app.route('/')
+def home():
+    return "✅ البوت يعمل بشكل صحيح!", 200
+
 
 # إنشاء نموذج GenerativeModel
 model = genai.GenerativeModel('gemini-1.5-pro')
@@ -172,11 +177,14 @@ def chat_with_gemini(message):
         logging.error(f"Error in chat_with_gemini: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
         
-@app.route('/' + TELEGRAM_BOT_TOKEN, methods=['POST'])
+# نقطة نهاية الويب هوك
+@app.route('/' + os.getenv('TELEGRAM_BOT_TOKEN'), methods=['POST'])
 def webhook():
-    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
-    bot.process_new_updates([update])
-    return 'ok', 200
+    if request.method == "POST":
+        update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+        bot.process_new_updates([update])
+        return 'ok', 200
+    return 'Method Not Allowed', 405
 
 def set_webhook():
     bot.remove_webhook()
@@ -184,14 +192,6 @@ def set_webhook():
     logging.info(f"🌍 تم تعيين الويب هوك على: {WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}")
 
 if __name__ == "__main__":
-    try:
-        logging.info("🚀 بدء تشغيل البوت...")
-        set_webhook()
-        PORT = int(os.environ.get('PORT', 5000))
-        app.run(host='0.0.0.0', port=PORT)
-    except Exception as e:
-        logging.error(f"❌ فشل تشغيل البوت: {e}")
-
-# تشغيل الخادم
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    set_webhook()
+    port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
+    app.run(host='0.0.0.0', port=port)
