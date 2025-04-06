@@ -40,7 +40,7 @@ def home():
 
 
 # إنشاء نموذج GenerativeModel
-model = genai.GenerativeModel('gemini-1.5-pro')
+model = genai.GenerativeModel('gemini-2.0-flash')
 
 def generate_gemini_response(prompt):
     try:
