@@ -83,11 +83,11 @@ def generate_quizzes_from_text(text):
     try:
         prompt = (
             "Create 3 English language quizzes for beginner learners based on the following video or audio script. "
-            "This script represents a scene that students are watching to enhance their learning. "
-            "The quizzes should be familiar and relevant to a video-watching or audio clip context. "
+            "This script represents a scene that students are watching or listening to enhance their learning. "
+            "The quizzes should be familiar and relevant to a video-watching or audio listening context. "
             "Each quiz should have 4 options and one correct answer. "
             "The quizzes should be varied, including fill-in-the-blank, multiple-choice, and sentence completion questions. "
-            "The questions should be phrased appropriately for a video context, such as 'What is mentioned in the video...' instead of 'What is mentioned in the text...'. "
+            "The questions should be phrased appropriately for a video or audio context, such as 'What is mentioned in the video...' or 'What is mentioned in the audio clip...' according to what specified later. "
             "Format the response as follows:\n\n"
             "Question: [Your question here]\n"
             "Option 1: [Option 1]\n"
