@@ -82,9 +82,9 @@ def is_english(text):
 def generate_quizzes_from_text(text):
     try:
         prompt = (
-            "Create 3 English language quizzes for beginner learners based on the following video script. "
+            "Create 3 English language quizzes for beginner learners based on the following video or audio script. "
             "This script represents a scene that students are watching to enhance their learning. "
-            "The quizzes should be familiar and relevant to a video-watching context. "
+            "The quizzes should be familiar and relevant to a video-watching or audio clip context. "
             "Each quiz should have 4 options and one correct answer. "
             "The quizzes should be varied, including fill-in-the-blank, multiple-choice, and sentence completion questions. "
             "The questions should be phrased appropriately for a video context, such as 'What is mentioned in the video...' instead of 'What is mentioned in the text...'. "
