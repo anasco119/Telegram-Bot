@@ -1,0 +1,76 @@
+import logging
+import sqlite3
+from flask import Flask, render_template, request
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+# إعداد البوت
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+CHANNEL_ID = "@yourchannel"  # أو رقم معرف القناة
+
+# إعداد Flask
+app = Flask(__name__)
+
+# قاعدة البيانات
+DB_FILE = 'lessons.db'
+
+def init_db():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS lessons (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL
+        )''')
+        conn.commit()
+
+# تشغيل التهيئة عند بداية التشغيل
+init_db()
+
+@app.route('/')
+def home():
+    return "Bot is running."
+
+@app.route('/reader')
+def reader():
+    text_id = request.args.get('text_id')
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT content FROM lessons WHERE id = ?", (text_id,))
+        row = c.fetchone()
+    return render_template('reader.html', text=row[0] if row else "Text not found")
+
+# إعداد بوت التليغرام
+logging.basicConfig(level=logging.INFO)
+
+async def post_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2:
+        await update.message.reply_text("يرجى إرسال الأمر كالتالي:\n/post_lesson lesson_id النص")
+        return
+
+    lesson_id = context.args[0]
+    lesson_text = " ".join(context.args[1:])
+
+    # إضافة للقاعدة
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("REPLACE INTO lessons (id, content) VALUES (?, ?)", (lesson_id, lesson_text))
+        conn.commit()
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("\ud83d\udcd6 قراءة تفاعلية", web_app=WebAppInfo(
+            url=f"https://YOUR_RENDER_URL/reader?text_id={lesson_id}"
+        ))
+    ]])
+
+    await context.bot.send_message(chat_id=CHANNEL_ID, text=lesson_text, reply_markup=keyboard)
+    await update.message.reply_text("تم نشر الدرس مع زر القراءة التفاعلية.")
+
+def main():
+    application = Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("post_lesson", post_lesson))
+    application.run_polling()
+
+if __name__ == '__main__':
+    from threading import Thread
+    Thread(target=main).start()
+    app.run(host='0.0.0.0', port=10000)  # تعديل البورت حسب Render
