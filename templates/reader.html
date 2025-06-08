@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head><meta charset="utf-8"><title>Interactive Reader</title></head>
+<body>
+  <div id="content" style="line-height:1.6;font-size:18px;"></div>
+  <script>
+    const lessons = JSON.parse(`{{ lessons|tojson|safe }}`);
+    const textId = new URLSearchParams(location.search).get('text_id');
+    const text = lessons[textId] || "Text not found";
+    const cont = document.getElementById('content');
+    text.split(/(\s+)/).forEach(w => {
+      if (w.trim()==='') cont.appendChild(document.createTextNode(w));
+      else {
+        const span = document.createElement('span');
+        span.textContent = w;
+        span.style.cursor = 'pointer';
+        span.onclick = () => {
+          fetch('https://libretranslate.de/translate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({q: w, source: 'en', target: 'ar'})
+          })
+          .then(res => res.json())
+          .then(res => {
+            const tip = document.createElement('div');
+            tip.textContent = res.translatedText;
+            tip.style.position = 'absolute';
+            tip.style.background = '#fff';
+            tip.style.border = '1px solid #aaa';
+            tip.style.padding = '4px';
+            tip.style.zIndex = 9999;
+            document.body.appendChild(tip);
+            const rect = span.getBoundingClientRect();
+            tip.style.left = rect.left + 'px';
+            tip.style.top = (rect.top - rect.height) + 'px';
+            setTimeout(() => tip.remove(), 2000);
+          });
+        };
+        cont.appendChild(span);
+      }
+    });
+  </script>
+</body>
+  </html>
