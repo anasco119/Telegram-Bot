@@ -31,6 +31,15 @@ bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 DB_FILE = '/tmp/lessons.db'  # مجلد آمن ومتاح في أغلب بيئات الاستضافة
 
+# دالة لحذف قاعدة البيانات
+@bot.message_handler(commands=['delete_db'])
+def delete_db(message):
+    if os.path.exists(DB_FILE):
+        os.remove(DB_FILE)
+        bot.reply_to(message, f"✅ تم حذف قاعدة البيانات: {DB_FILE}")
+    else:
+        bot.reply_to(message, "❌ قاعدة البيانات غير موجودة.")
+
 def init_db():
     try:
         with sqlite3.connect(DB_FILE) as conn:
