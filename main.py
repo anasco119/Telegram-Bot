@@ -61,8 +61,7 @@ def handle_post_lesson(message):
                 conn.commit()
 
             keyboard = InlineKeyboardMarkup([[
-                InlineKeyboardButton("📖 قراءة تفاعلية", web_app=WebAppInfo(
-                    url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}"
+                InlineKeyboardButton("📖 قراءة تفاعلية", url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}"
                 ))
             ]])
 
