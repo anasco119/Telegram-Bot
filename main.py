@@ -20,6 +20,9 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 # إعداد Flask
 app = Flask(__name__)
 
+@app.route('/')
+def index():
+    return "البوت يعمل ✔️"
 # إعداد السجل
 logging.basicConfig(level=logging.INFO)
 
