@@ -232,7 +232,7 @@ def set_webhook():
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL + '/' + TELEGRAM_BOT_TOKEN)
     logging.info(f"🌍 تم تعيين الويب هوك على: {WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}")
-def main()
+def main():
     application.add_handler(CommandHandler("post_lesson", post_lesson))
     application.run_polling()
 
