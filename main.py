@@ -29,16 +29,7 @@ logging.basicConfig(level=logging.INFO)
 # إعداد البوت
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-DB_FILE = '/tmp/lessons.db'  # مجلد آمن ومتاح في أغلب بيئات الاستضافة
-
-# دالة لحذف قاعدة البيانات
-@bot.message_handler(commands=['delete_db'])
-def delete_db(message):
-    if os.path.exists(DB_FILE):
-        os.remove(DB_FILE)
-        bot.reply_to(message, f"✅ تم حذف قاعدة البيانات: {DB_FILE}")
-    else:
-        bot.reply_to(message, "❌ قاعدة البيانات غير موجودة.")
+DB_FILE = '/tmp/lessons.db'
 
 def init_db():
     try:
@@ -53,6 +44,21 @@ def init_db():
     except Exception as e:
         logging.error(f"❌ Database init error: {e}")
 
+# حذف قاعدة البيانات عند استلام أمر reset
+@bot.message_handler(commands=['reset_db'])
+def reset_database(message):
+    if message.from_user.id == ALLOWED_USER_ID:  # فقط للمسؤول
+        if os.path.exists(DB_FILE):
+            os.remove(DB_FILE)
+            bot.send_message(message.chat.id, f"✅ تم حذف قاعدة البيانات: {DB_FILE}")
+            init_db()  # إعادة إنشاء القاعدة بعد الحذف
+            bot.send_message(message.chat.id, "✅ تم إعادة إنشاء قاعدة البيانات.")
+        else:
+            bot.send_message(message.chat.id, "❌ قاعدة البيانات غير موجودة.")
+    else:
+        bot.send_message(message.chat.id, "هذا الأمر متاح فقط للمسؤول.")
+
+# تأكد من استدعاء `init_db()` في البداية أيضًا عند بدء البوت
 init_db()
 
 @bot.message_handler(commands=['post_lesson'])
