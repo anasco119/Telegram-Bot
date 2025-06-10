@@ -73,6 +73,10 @@ def handle_post_lesson(message):
         logging.error(f"خطأ في post_lesson: {e}")
         bot.send_message(USER_ID, f"حدث خطأ: {e}")
 
+@app.route('/reader')
+def reader():
+    text_id = request.args.get("text_id")
+    # باقي الكود ...
 
 # تهيئة مكتبة Gemini
 try:
