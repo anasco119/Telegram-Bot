@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 # إعداد البوت
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-DB_FILE = '/tmp/lessons.db'
+DB_FILE = 'lessons.db'
 
 def init_db():
     try:
