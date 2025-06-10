@@ -6,14 +6,30 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            font-size: 24px;
+            font-size: 28px;  /* زيادة حجم الخط */
             padding: 20px;
             background-color: #f9f9f9;
             line-height: 1.8;
+            color: #333;  /* اللون الأساسي للنص */
+        }
+
+        /* الحفاظ على التنسيق الأصلي للنص (الأسطر والمسافات) */
+        .content {
+            white-space: pre-line;  /* يجعل الأسطر والمسافات تظهر كما هي */
+            word-wrap: break-word;  /* يسمح بتقسيم الكلمات إذا كانت كبيرة جدًا */
+        }
+
+        /* تلوين الكلمات المحددة (مثال: تلوين الكلمات المهمة) */
+        .highlight {
+            color: #ff6347;  /* تلوين باللون الأحمر */
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div>{{ text }}</div>
+    <div class="content">
+        <!-- عرض النص مع تلوين الكلمات المهمة -->
+        {{ text | safe }}
+    </div>
 </body>
 </html>
