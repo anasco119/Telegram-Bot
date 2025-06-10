@@ -43,7 +43,7 @@ init_db()
 @bot.message_handler(commands=['post_lesson'])
 def handle_post_lesson(message):
     try:
-        if message.chat.type == "private" and message.from_user.id == USER_ID:
+        if message.chat.type == "private" and message.from_user.id == ALLOWED_USER_ID:
             parts = message.text.split(maxsplit=2)
             if len(parts) < 3:
                 bot.send_message(message.chat.id, "يرجى إرسال الأمر بهذا الشكل:\n/post_lesson lesson_id النص")
