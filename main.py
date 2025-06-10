@@ -1,19 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, render_template
 import os
 import google.generativeai as genai
 import telebot
 import re
 import logging
+import sqlite3
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
-# إعداد سجل الأخطاء
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("bot_errors.log"),
-        logging.StreamHandler()
-    ]
-)
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -23,20 +16,69 @@ GROUP_ID = os.getenv('GROUP_ID')  # معرف المجموعة
 ALLOWED_USER_ID = int(os.getenv('USER_ID'))
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
+
+# إعداد Flask
+app = Flask(__name__)
+
+# إعداد السجل
+logging.basicConfig(level=logging.INFO)
+
+# إعداد البوت
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+
+# قاعدة البيانات
+DB_FILE = 'lessons.db'
+
+def init_db():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS lessons (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL
+        )''')
+        conn.commit()
+
+init_db()
+
+@bot.message_handler(commands=['post_lesson'])
+def handle_post_lesson(message):
+    try:
+        if message.chat.type == "private" and message.from_user.id == USER_ID:
+            parts = message.text.split(maxsplit=2)
+            if len(parts) < 3:
+                bot.send_message(message.chat.id, "يرجى إرسال الأمر بهذا الشكل:\n/post_lesson lesson_id النص")
+                return
+
+            lesson_id = parts[1]
+            lesson_text = parts[2]
+
+            with sqlite3.connect(DB_FILE) as conn:
+                c = conn.cursor()
+                c.execute("REPLACE INTO lessons (id, content) VALUES (?, ?)", (lesson_id, lesson_text))
+                conn.commit()
+
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton("📖 قراءة تفاعلية", web_app=WebAppInfo(
+                    url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}"
+                ))
+            ]])
+
+            bot.send_message(CHANNEL_ID, lesson_text, reply_markup=keyboard)
+            bot.send_message(message.chat.id, "✅ تم نشر الدرس مع زر القراءة.")
+
+        else:
+            bot.send_message(message.chat.id, "هذا الأمر متاح فقط للمسؤول.")
+    except Exception as e:
+        logging.error(f"خطأ في post_lesson: {e}")
+        bot.send_message(USER_ID, f"حدث خطأ: {e}")
+
+
 # تهيئة مكتبة Gemini
 try:
     genai.configure(api_key=GEMINI_API_KEY)
     logging.info("Gemini configured successfully")
 except Exception as e:
     logging.error(f"Error configuring Gemini: {e}")
-# تهيئة بوت Telegram
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-app = Flask(__name__)
-
-# نقطة نهاية أساسية للتحقق من عمل الخادم
-@app.route('/')
-def home():
-    return "✅ البوت يعمل بشكل صحيح!", 200
 
 
 # إنشاء نموذج GenerativeModel
@@ -190,6 +232,9 @@ def set_webhook():
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL + '/' + TELEGRAM_BOT_TOKEN)
     logging.info(f"🌍 تم تعيين الويب هوك على: {WEBHOOK_URL}/{TELEGRAM_BOT_TOKEN}")
+def main()
+    application.add_handler(CommandHandler("post_lesson", post_lesson))
+    application.run_polling()
 
 if __name__ == "__main__":
     set_webhook()
