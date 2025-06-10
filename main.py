@@ -26,17 +26,20 @@ logging.basicConfig(level=logging.INFO)
 # إعداد البوت
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# قاعدة البيانات
-DB_FILE = 'lessons.db'
+DB_FILE = '/tmp/lessons.db'  # مجلد آمن ومتاح في أغلب بيئات الاستضافة
 
 def init_db():
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS lessons (
-            id TEXT PRIMARY KEY,
-            content TEXT NOT NULL
-        )''')
-        conn.commit()
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('''CREATE TABLE IF NOT EXISTS lessons (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL
+            )''')
+            conn.commit()
+        logging.info(f"✅ Database created at: {os.path.abspath(DB_FILE)}")
+    except Exception as e:
+        logging.error(f"❌ Database init error: {e}")
 
 init_db()
 
