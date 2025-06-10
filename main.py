@@ -93,31 +93,18 @@ def handle_post_lesson(message):
 
 @app.route('/reader')
 def reader():
-    try:
-        text_id = request.args.get("text_id")
-        if not text_id:
-            logging.error("Missing text_id in the URL.")
-            return "Missing text_id", 400
-
-        logging.info(f"Fetching lesson for text_id: {text_id}")
-
-        # استرجاع المحتوى من قاعدة البيانات أو مصدر آخر
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            c.execute("SELECT content FROM lessons WHERE id = ?", (text_id,))
-            lesson = c.fetchone()
-
-            if not lesson:
-                logging.error(f"Lesson with ID {text_id} not found.")
-                return "Lesson not found", 404
-
-            lesson_text = lesson[0]
-            logging.info(f"Lesson found: {lesson_text[:50]}...")  # عرض جزء من النص لفحصه
-
-        return render_template("reader.html", lesson_text=lesson_text)  # عرض النص في الصفحة
-    except Exception as e:
-        logging.error(f"Error in /reader: {str(e)}")
-        return "Internal Server Error", 500
+    text_id = request.args.get("text_id")
+    
+    # تحقق من أن النص موجود في قاعدة البيانات
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT content FROM lessons WHERE id=?", (text_id,))
+        lesson = c.fetchone()
+    
+    if lesson:
+        return render_template("reader.html", text=lesson[0])
+    else:
+        return "❌ الدرس غير موجود"
 
 # تهيئة مكتبة Gemini
 try:
