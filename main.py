@@ -11,6 +11,9 @@ from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
 import time
 import json
+import cohere
+from groq import Groq
+from dotenv import load_dotenv
 
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
