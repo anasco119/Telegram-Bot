@@ -48,3 +48,4 @@ moviepy
 pydub
 requests
 cohere
+groq
