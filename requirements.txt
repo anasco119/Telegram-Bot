@@ -49,3 +49,4 @@ pydub
 requests
 cohere
 groq
+python-dotenv
