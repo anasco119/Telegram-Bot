@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from moviepy.config import change_settings
 import zipfile
 import stat  # ضعه أعلى الملف مع الاستيرادات
-
+from datetime import datetime
 
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
@@ -601,7 +601,32 @@ def handle_channel_video(message):
     except Exception as e:
         print(f"❌ خطأ أثناء معالجة فيديو من القناة: {e}")
 
+@bot.message_handler(commands=['index'])
+def handle_video_index(message):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT lesson_number, title, link 
+                FROM lessons 
+                WHERE type = 'video' AND title IS NOT NULL AND link IS NOT NULL
+                ORDER BY lesson_number ASC
+                LIMIT 20
+            """)
+            lessons = c.fetchall()
 
+        if not lessons:
+            bot.send_message(message.chat.id, "📭 لا توجد فيديوهات محفوظة حتى الآن.")
+            return
+
+        text = "🎬 *فهرس فيديوهات القناة:*\n\n"
+        for num, title, link in lessons:
+            text += f"🔹 *Lesson {num}:* [{title}]({link})\n"
+
+        bot.send_message(message.chat.id, text, parse_mode="Markdown", disable_web_page_preview=True)
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ خطأ أثناء عرض الفهرس:\n{e}")
 
 @bot.message_handler(func=lambda message: True)
 def chat_with_gemini(message):
