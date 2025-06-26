@@ -16,6 +16,7 @@ from groq import Groq
 from dotenv import load_dotenv
 from moviepy.config import change_settings
 import zipfile
+import stat  # ضعه أعلى الملف مع الاستيرادات
 
 
 
@@ -106,7 +107,9 @@ def insert_old_lessons_from_json(json_file):
 
 
 temp_data = {}
-
+init_db()
+upgrade_database()  # <-- أضف هذا السطر هنا
+        
 def download_and_extract_ffmpeg():
     url = "https://github.com/anasco119/Telegram-Bot/releases/download/GenieV3/bin.zip"
     zip_path = "bin.zip"
@@ -124,6 +127,8 @@ def download_and_extract_ffmpeg():
         os.remove(zip_path)
 
 download_and_extract_ffmpeg()
+# بعد فك الضغط مباشرة، أضف:
+os.chmod("bin/ffmpeg", stat.S_IRWXU)  # يعطيه صلاحيات القراءة والكتابة والتنفيذ للمالك
 
 # إعداد ffmpeg/ffprobe
 change_settings({
@@ -639,5 +644,4 @@ if __name__ == "__main__":
     set_webhook()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
-    init_db()
-    upgrade_database()  # <-- أضف هذا السطر هنا
+    
