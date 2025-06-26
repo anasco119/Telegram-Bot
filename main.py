@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template
-import os, sys
+import os
 import google.generativeai as genai
 import telebot
 import re
@@ -18,10 +18,6 @@ from moviepy.config import change_settings
 import zipfile
 
 
-
-print("🔍 sys.path:", sys.path)
-print("🔍 الملفات في المشروع:", os.listdir('.'))
-print("🔍 تثبيتات pip:", list(pkg.key for pkg in __import__('pkg_resources').working_set))
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -505,28 +501,6 @@ def process_text_for_quiz(message):
         logging.error(f"Error in process_text_for_quiz: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 
-@bot.message_handler(func=lambda message: True)
-def chat_with_gemini(message):
-    try:
-        chat_id = str(message.chat.id)
-        message_text = message.text.lower()
-
-        if message.chat.type == "private":
-            if message.from_user.id == ALLOWED_USER_ID:
-                response_text = generate_gemini_response(message_text)
-                bot.send_message(message.chat.id, response_text)
-            else:
-                bot.send_message(message.chat.id, "هذا البوت مخصص للاستخدام في المجموعة فقط.")
-            return
-
-        if chat_id == GROUP_ID:  # التعامل مع الرسائل في المجموعة
-            if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
-                response_text = generate_gemini_response(message_text)
-                bot.send_message(message.chat.id, response_text)
-    except Exception as e:
-        logging.error(f"Error in chat_with_gemini: {e}")
-        bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
-
 
 # ✅ أمر /start
 @bot.message_handler(commands=['subtitle'])
@@ -539,7 +513,7 @@ def handle_start(message):
 # ✅ استقبال فيديو من الأدمن فقط
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id != ALLOWED_USER_ID:
         bot.reply_to(message, "❌ هذا الأمر متاح فقط للأدمن.")
         return
 
@@ -579,7 +553,7 @@ def handle_video(message):
 
 @bot.message_handler(commands=['import_old_lessons'])
 def import_lessons_command(message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id != ALLOWED_USER_ID:
         bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
         return
 
@@ -621,6 +595,30 @@ def handle_channel_video(message):
         print(f"✅ تم حفظ درس جديد من القناة: Lesson {lesson_number}")
     except Exception as e:
         print(f"❌ خطأ أثناء معالجة فيديو من القناة: {e}")
+
+
+
+@bot.message_handler(func=lambda message: True)
+def chat_with_gemini(message):
+    try:
+        chat_id = str(message.chat.id)
+        message_text = message.text.lower()
+
+        if message.chat.type == "private":
+            if message.from_user.id == ALLOWED_USER_ID:
+                response_text = generate_gemini_response(message_text)
+                bot.send_message(message.chat.id, response_text)
+            else:
+                bot.send_message(message.chat.id, "هذا البوت مخصص للاستخدام في المجموعة فقط.")
+            return
+
+        if chat_id == GROUP_ID:  # التعامل مع الرسائل في المجموعة
+            if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
+                response_text = generate_gemini_response(message_text)
+                bot.send_message(message.chat.id, response_text)
+    except Exception as e:
+        logging.error(f"Error in chat_with_gemini: {e}")
+        bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 
 
 # نقطة نهاية الويب هوك
