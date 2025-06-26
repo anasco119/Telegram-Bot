@@ -14,6 +14,9 @@ import json
 import cohere
 from groq import Groq
 from dotenv import load_dotenv
+from moviepy.config import change_settings
+import zipfile
+
 
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
@@ -101,6 +104,32 @@ def insert_old_lessons_from_json(json_file):
         conn.commit()
     print("✅ تم إدخال دروس JSON بنجاح.")
 
+
+
+
+def download_and_extract_ffmpeg():
+    url = "https://github.com/anasco119/Telegram-Bot/releases/download/GenieV3/bin.zip"
+    zip_path = "bin.zip"
+    
+    if not os.path.exists("bin/ffmpeg"):
+        print("⏬ Downloading ffmpeg...")
+        r = requests.get(url)
+        with open(zip_path, 'wb') as f:
+            f.write(r.content)
+
+        print("📦 Extracting...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(".")
+
+        os.remove(zip_path)
+
+download_and_extract_ffmpeg()
+
+# إعداد ffmpeg/ffprobe
+change_settings({
+    "FFMPEG_BINARY": os.path.abspath("bin/ffmpeg"),
+    "FFPROBE_BINARY": os.path.abspath("bin/ffprobe")
+})
 
 
 # حذف قاعدة البيانات عند استلام أمر reset
@@ -493,7 +522,6 @@ def chat_with_gemini(message):
     except Exception as e:
         logging.error(f"Error in chat_with_gemini: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
-
 
 
 # ✅ أمر /start
