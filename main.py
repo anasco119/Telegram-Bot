@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template
-import os
+import os, sys
 import google.generativeai as genai
 import telebot
 import re
@@ -18,6 +18,10 @@ from moviepy.config import change_settings
 import zipfile
 
 
+
+print("🔍 sys.path:", sys.path)
+print("🔍 الملفات في المشروع:", os.listdir('.'))
+print("🔍 تثبيتات pip:", list(pkg.key for pkg in __import__('pkg_resources').working_set))
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
