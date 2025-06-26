@@ -105,7 +105,7 @@ def insert_old_lessons_from_json(json_file):
     print("✅ تم إدخال دروس JSON بنجاح.")
 
 
-
+temp_data = {}
 
 def download_and_extract_ffmpeg():
     url = "https://github.com/anasco119/Telegram-Bot/releases/download/GenieV3/bin.zip"
@@ -505,7 +505,7 @@ def process_text_for_quiz(message):
 # ✅ أمر /start
 @bot.message_handler(commands=['subtitle'])
 def handle_start(message):
-    if message.from_user.id == ADMIN_ID:
+    if message.from_user.id == ALLOWED_USER_ID:
         bot.reply_to(message, "👋 أرسل فيديو وسأقوم بتحويله إلى ملف ترجمة.")
     else:
         bot.reply_to(message, "❌ هذا البوت مخصص فقط للأدمن.")
@@ -639,3 +639,5 @@ if __name__ == "__main__":
     set_webhook()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
+    init_db()
+    upgrade_database()  # <-- أضف هذا السطر هنا
