@@ -419,7 +419,29 @@ def assembly_to_srt(assembly_json, promo=None):
 
     return '\n\n'.join(srt_output)
 
+# ✅ تحويل Deepgram JSON إلى SRT
+def deepgram_json_to_srt(transcript_data):
+    srt_blocks = []
+    index = 1
 
+    for utterance in transcript_data['results']['utterances']:
+        start = format_time(utterance['start'])
+        end = format_time(utterance['end'])
+        speaker = f"المتحدث {utterance['speaker']}:" if 'speaker' in utterance else ""
+        text = f"{speaker} {utterance['transcript']}"
+
+        srt_blocks.append(f"{index}\n{start} --> {end}\n{text.strip()}")
+        index += 1
+
+    return '\n\n'.join(srt_blocks)
+
+# ✅ تحويل الثواني إلى تنسيق SRT
+def format_time(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:06.3f}".replace('.', ',')
+    
 # ✅ المعالجة الكاملة
 def process_video_to_srt():
     extract_and_compress_audio(VIDEO_PATH, AUDIO_PATH)
