@@ -466,7 +466,19 @@ def process_video_to_srt():
     
     print("✅ تم إنشاء ملف SRT متزامن: ", SRT_PATH)
     return True
-
+def add_promo_to_raw_srt(srt_text: str, promo: str):
+    promo_block = f"1\n00:00:00,000 --> 00:00:02,000\n{promo}\n\n"
+    
+    # إعادة ترقيم الكتل الأصلية بدءًا من 2
+    blocks = srt_text.strip().split('\n\n')
+    renumbered_blocks = []
+    for i, block in enumerate(blocks, start=2):
+        lines = block.strip().split('\n')
+        if len(lines) >= 2:
+            lines[0] = str(i)
+        renumbered_blocks.append('\n'.join(lines))
+    
+    return promo_block + '\n\n'.join(renumbered_blocks)
 
 def create_quiz(channel_id, question, options, correct_option_id):
     try:
