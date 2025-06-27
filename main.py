@@ -85,30 +85,41 @@ def upgrade_database():
     except Exception as e:
         print(f"❌ خطأ أثناء تعديل قاعدة البيانات: {e}")
 
-def insert_old_lessons_from_json(json_file):
-    with open(json_file, 'r', encoding='utf-8') as f:
-        lessons = json.load(f)
+
+def insert_old_lessons_from_json(json_path):
+    
+    if not os.path.exists(json_path):
+        print(f"⚠️ ملف {json_path} غير موجود.")
+        return
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        for i, lesson in enumerate(lessons, start=1):
-            lesson_id = f"oldvid_{i:03}"  # يمكن تغييره لاحقًا
-            lesson_number = i
-            title = lesson.get('title')
-            link = lesson.get('link')
-            lesson_type = lesson.get('type', 'video')
 
-            c.execute('''INSERT OR IGNORE INTO lessons
-                         (id, lesson_number, title, link, type)
-                         VALUES (?, ?, ?, ?, ?)''',
-                      (lesson_id, lesson_number, title, link, lesson_type))
+        # نتحقق هل توجد أي دروس مستوردة سابقًا (مثلاً برقم درس > 0)
+        c.execute("SELECT COUNT(*) FROM lessons WHERE lesson_number IS NOT NULL")
+        count = c.fetchone()[0]
+
+        if count > 0:
+            print("📌 تم استيراد الدروس مسبقًا. لن يتم التكرار.")
+            return
+
+        with open(json_path, "r", encoding="utf-8") as f:
+            lessons = json.load(f)
+
+        for i, lesson in enumerate(lessons, start=1):
+            content = f"{lesson['title']}\n{lesson['link']}"
+            c.execute(
+                "INSERT INTO lessons (content, video_id, srt_content, summary, lesson_number) VALUES (?, ?, ?, ?, ?)",
+                (content, None, None, None, i)
+            )
         conn.commit()
-    print("✅ تم إدخال دروس JSON بنجاح.")
+        print(f"✅ تم استيراد {len(lessons)} دروس من JSON.")
 
 
 temp_data = {}
 init_db()
-upgrade_database()  # <-- أضف هذا السطر هنا
+upgrade_database()
+insert_old_lessons_from_json("videos_list.json")
         
 def download_and_extract_ffmpeg():
     url = "https://github.com/anasco119/Telegram-Bot/releases/download/GenieV3/bin.zip"
