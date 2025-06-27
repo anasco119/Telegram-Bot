@@ -361,21 +361,23 @@ def transcribe_with_assembly(audio_path):
 # ✅ تحويل باستخدام Deepgram
 def transcribe_with_deepgram(audio_path):
     try:
-        with open(audio_path, 'rb') as f:
+        with open(audio_path, 'rb') as audio_file:
             response = requests.post(
-                "https://api.deepgram.com/v1/listen?punctuate=true&format=srt",
+                "https://api.deepgram.com/v1/listen?punctuate=true&utterances=true&diarize=true",
                 headers={
                     "Authorization": f"Token {DEEPGRAM_API_KEY}",
                     "Content-Type": "audio/wav"
                 },
-                data=f
+                data=audio_file
             )
+
         if response.status_code == 200:
-            return response.text
+            return response.json()  # ✅ يرجع dict
         else:
-            raise Exception(response.text)
+            print("Deepgram Error:", response.text)
+            return None
     except Exception as e:
-        print(f"❌ Deepgram فشل: {e}")
+        print("❌ Deepgram فشل:", str(e))
         return None
 
 def format_time(seconds):
