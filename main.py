@@ -442,34 +442,29 @@ def format_time(seconds):
     seconds = seconds % 60
     return f"{hours:02d}:{minutes:02d}:{seconds:06.3f}".replace('.', ',')
     
-# ✅ المعالجة الكاملة
 def process_video_to_srt():
     extract_and_compress_audio(VIDEO_PATH, AUDIO_PATH)
 
-    # جرّب التفريغ باستخدام AssemblyAI أولًا
+    # ✅ المحاولة الأولى: AssemblyAI
     srt_data = transcribe_with_assembly(AUDIO_PATH)
-
-    if srt_data:
-        # ✅ استخدم التحويل الجديد مع الجملة الترويجية
-        final_srt = assembly_to_srt(srt_data, promo=PROMO_MESSAGE)
+    
+    if srt_data and isinstance(srt_data, str):
+        final_srt = add_promo_to_raw_srt(srt_data, PROMO_MESSAGE)
 
     else:
-        # fallback إلى Deepgram إذا فشل Assembly
-        srt_data = transcribe_with_deepgram(AUDIO_PATH)
-
-        if srt_data:
-            final_srt = deepgram_json_to_srt(srt_data)
-            final_srt = add_promo_correctly(final_srt, PROMO_MESSAGE)  # لا مشكلة هنا لأن Deepgram لا يعطي توقيتات دقيقة مثل Assembly
-
+        # ✅ المحاولة الثانية: Deepgram
+        transcript_json = transcribe_with_deepgram(AUDIO_PATH)
+        if transcript_json:
+            srt_data = deepgram_json_to_srt(transcript_json)
+            final_srt = add_promo_to_raw_srt(srt_data, PROMO_MESSAGE)
         else:
-            print("❌ فشل في التفريغ من الخدمتين")
+            print("❌ فشل إنشاء SRT من Assembly و Deepgram")
             return False
 
-    # ✅ كتابة ملف SRT النهائي
     with open(SRT_PATH, 'w', encoding='utf-8') as f:
         f.write(final_srt)
-
-    print(f"✅ تم حفظ ملف SRT النهائي في {SRT_PATH}")
+    
+    print("✅ تم إنشاء ملف SRT متزامن: ", SRT_PATH)
     return True
 
 
