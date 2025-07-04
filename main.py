@@ -173,58 +173,6 @@ def handle_post_lesson(message):
                 'lesson_text': lesson_text
             }
             
-            # إنشاء زر تأكيد
-            keyboard = InlineKeyboardMarkup()
-            keyboard.add(
-                InlineKeyboardButton("✅ تأكيد الإرسال", callback_data=f"confirm_post:{lesson_id}"),
-                InlineKeyboardButton("❌ إلغاء", callback_data="cancel_post")
-            )
-            
-            bot.send_message(
-                message.chat.id,
-                f"⚠️ هل تريد حقًا إرسال هذا الدرس إلى القناة؟\n\n"
-                f"معرف الدرس: {lesson_id}\n"
-                f"النص: {lesson_text[:100]}...",  # عرض جزء من النص للمعاينة
-                reply_markup=keyboard
-            )
-        else:
-            bot.send_message(message.chat.id, "هذا الأمر متاح فقط للمسؤول.")
-    except Exception as e:
-        logging.error(f"خطأ في post_lesson: {e}")
-        bot.send_message(USER_ID, f"حدث خطأ: {e}")
-
-# معالج زر التأكيد
-@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_post:'))
-def confirm_post(call):
-    try:
-        lesson_id = call.data.split(':')[1]
-        
-        # هنا يمكنك استعادة النص من قاعدة البيانات أو المتغيرات المؤقتة
-        # في هذا المثال افترضنا أننا نحتفظ بالبيانات في user_data
-        
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("📖 قراءة تفاعلية", url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}")
-        ]])
-        
-        bot.send_message(CHANNEL_ID, call.message.text.split("النص: ")[1].split("...")[0], reply_markup=keyboard)
-        bot.edit_message_text(
-            "✅ تم نشر الدرس بنجاح في القناة.",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id
-        )
-        
-    except Exception as e:
-        logging.error(f"خطأ في confirm_post: {e}")
-        bot.send_message(USER_ID, f"حدث خطأ في التأكيد: {e}")
-
-# معالج زر الإلغاء
-@bot.callback_query_handler(func=lambda call: call.data == 'cancel_post')
-def cancel_post(call):
-    bot.edit_message_text(
-        "❌ تم إلغاء نشر الدرس.",
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id
-    )
 
 @app.route('/reader')
 def reader():
@@ -241,7 +189,119 @@ def reader():
     else:
         return "❌ الدرس غير موجود"
 
+@bot.message_handler(commands=['post_lesson'])
+def handle_post_lesson(message):
+    try:
+        if message.chat.type == "private" and message.from_user.id == ALLOWED_USER_ID:
+            parts = message.text.split(maxsplit=2)
+            if len(parts) < 3:
+                bot.send_message(message.chat.id, "يرجى إرسال الأمر بهذا الشكل:\n/post_lesson lesson_id النص")
+                return
 
+            lesson_id = parts[1]
+            lesson_text = parts[2]
+
+            # حفظ البيانات في المتغير المؤقت
+            msg = bot.send_message(
+                message.chat.id,
+                f"⚠️ هل تريد حقًا إرسال هذا الدرس إلى القناة؟\n\n"
+                f"معرف الدرس: {lesson_id}\n"
+                f"النص: {lesson_text[:300]}...",  # عرض 300 حرف للمعاينة
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("✅ تأكيد الإرسال", callback_data=f"confirm_post:{lesson_id}:{message.message_id}"),
+                        InlineKeyboardButton("❌ إلغاء", callback_data="cancel_post")
+                    ]
+                ])
+            )
+            
+            # حفظ البيانات المؤقتة في الذاكرة
+            with sqlite3.connect(DB_FILE) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    CREATE TABLE IF NOT EXISTS temp_lessons (
+                        user_id INTEGER,
+                        message_id INTEGER,
+                        lesson_id TEXT,
+                        lesson_text TEXT,
+                        PRIMARY KEY (user_id, message_id)
+                    )
+                """)
+                c.execute("""
+                    REPLACE INTO temp_lessons (user_id, message_id, lesson_id, lesson_text)
+                    VALUES (?, ?, ?, ?)
+                """, (message.from_user.id, msg.message_id, lesson_id, lesson_text))
+                conn.commit()
+
+        else:
+            bot.send_message(message.chat.id, "هذا الأمر متاح فقط للمسؤول.")
+    except Exception as e:
+        logging.error(f"خطأ في post_lesson: {e}")
+        bot.send_message(USER_ID, f"حدث خطأ: {e}")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_post:'))
+def confirm_post(call):
+    try:
+        # استخراج البيانات من callback_data
+        _, lesson_id, original_msg_id = call.data.split(':')
+        
+        # استعادة النص الكامل من قاعدة البيانات المؤقتة
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT lesson_text FROM temp_lessons 
+                WHERE user_id = ? AND message_id = ?
+            """, (call.from_user.id, int(original_msg_id)))
+            result = c.fetchone()
+            
+            if not result:
+                bot.answer_callback_query(call.id, "❌ لم يتم العثور على بيانات الدرس", show_alert=True)
+                return
+                
+            lesson_text = result[0]
+            
+            # حفظ الدرس في قاعدة البيانات الرئيسية
+            c.execute("""
+                REPLACE INTO lessons (id, content) 
+                VALUES (?, ?)
+            """, (lesson_id, lesson_text))
+            conn.commit()
+            
+            # تنظيف البيانات المؤقتة
+            c.execute("""
+                DELETE FROM temp_lessons 
+                WHERE user_id = ? AND message_id = ?
+            """, (call.from_user.id, int(original_msg_id)))
+            conn.commit()
+
+        # إرسال الدرس إلى القناة
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📖 قراءة تفاعلية", url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}")
+        ]])
+        
+        bot.send_message(CHANNEL_ID, lesson_text, reply_markup=keyboard)
+        bot.edit_message_text(
+            "✅ تم نشر الدرس بنجاح في القناة وحفظه في قاعدة البيانات.",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
+        )
+        
+    except Exception as e:
+        logging.error(f"خطأ في confirm_post: {e}")
+        bot.answer_callback_query(call.id, f"حدث خطأ: {e}", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'cancel_post')
+def cancel_post(call):
+    try:
+        # تنظيف البيانات المؤقت
+        bot.edit_message_text(
+            "❌ تم إلغاء نشر الدرس.",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
+        )
+    except Exception as e:
+        logging.error(f"خطأ في cancel_post: {e}")
+        bot.answer_callback_query(call.id, f"حدث خطأ أثناء الإلغاء: {e}", show_alert=True)
 
 
 # --- إعداد المفاتيح والعمل
