@@ -167,23 +167,64 @@ def handle_post_lesson(message):
             lesson_id = parts[1]
             lesson_text = parts[2]
 
-            with sqlite3.connect(DB_FILE) as conn:
-                c = conn.cursor()
-                c.execute("REPLACE INTO lessons (id, content) VALUES (?, ?)", (lesson_id, lesson_text))
-                conn.commit()
-
-            keyboard = InlineKeyboardMarkup([[
-                InlineKeyboardButton("📖 قراءة تفاعلية", url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}")
-            ]])
-
-            bot.send_message(CHANNEL_ID, lesson_text, reply_markup=keyboard)
-            bot.send_message(message.chat.id, "✅ تم نشر الدرس مع زر القراءة.")
-
+            # حفظ البيانات مؤقتًا لاستخدامها في حالة التأكيد
+            user_data = {
+                'lesson_id': lesson_id,
+                'lesson_text': lesson_text
+            }
+            
+            # إنشاء زر تأكيد
+            keyboard = InlineKeyboardMarkup()
+            keyboard.add(
+                InlineKeyboardButton("✅ تأكيد الإرسال", callback_data=f"confirm_post:{lesson_id}"),
+                InlineKeyboardButton("❌ إلغاء", callback_data="cancel_post")
+            )
+            
+            bot.send_message(
+                message.chat.id,
+                f"⚠️ هل تريد حقًا إرسال هذا الدرس إلى القناة؟\n\n"
+                f"معرف الدرس: {lesson_id}\n"
+                f"النص: {lesson_text[:100]}...",  # عرض جزء من النص للمعاينة
+                reply_markup=keyboard
+            )
         else:
             bot.send_message(message.chat.id, "هذا الأمر متاح فقط للمسؤول.")
     except Exception as e:
         logging.error(f"خطأ في post_lesson: {e}")
         bot.send_message(USER_ID, f"حدث خطأ: {e}")
+
+# معالج زر التأكيد
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_post:'))
+def confirm_post(call):
+    try:
+        lesson_id = call.data.split(':')[1]
+        
+        # هنا يمكنك استعادة النص من قاعدة البيانات أو المتغيرات المؤقتة
+        # في هذا المثال افترضنا أننا نحتفظ بالبيانات في user_data
+        
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📖 قراءة تفاعلية", url=f"{WEBHOOK_URL}/reader?text_id={lesson_id}")
+        ]])
+        
+        bot.send_message(CHANNEL_ID, call.message.text.split("النص: ")[1].split("...")[0], reply_markup=keyboard)
+        bot.edit_message_text(
+            "✅ تم نشر الدرس بنجاح في القناة.",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
+        )
+        
+    except Exception as e:
+        logging.error(f"خطأ في confirm_post: {e}")
+        bot.send_message(USER_ID, f"حدث خطأ في التأكيد: {e}")
+
+# معالج زر الإلغاء
+@bot.callback_query_handler(func=lambda call: call.data == 'cancel_post')
+def cancel_post(call):
+    bot.edit_message_text(
+        "❌ تم إلغاء نشر الدرس.",
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id
+    )
 
 @app.route('/reader')
 def reader():
