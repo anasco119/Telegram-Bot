@@ -100,11 +100,12 @@ def insert_old_lessons_from_json(json_path):
             lesson_id = f"old_lesson_{i}"
             content = f"{lesson['title']}\n{lesson['link']}"
             c.execute(
-                "INSERT INTO lessons (id, content, video_id, srt_content, summary, lesson_number, title, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (lesson_id, content, None, None, None, i, lesson.get('title'), lesson.get('link'))
+                "INSERT INTO lessons (id, content, video_id, srt_content, summary, lesson_number, title, link, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (lesson_id, content, None, None, None, i, lesson.get('title'), lesson.get('link'), 'video')
             )
         conn.commit()
         print(f"Imported {len(lessons)} lessons from JSON.")
+
 
 
 temp_data = {}
