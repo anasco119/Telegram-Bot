@@ -52,6 +52,11 @@ logging.basicConfig(level=logging.INFO)
 # إعداد البوت
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
+import sqlite3
+import os
+import logging
+import json
+
 DB_FILE = 'lessons.db'
 
 def init_db():
@@ -60,65 +65,50 @@ def init_db():
             c = conn.cursor()
             c.execute('''CREATE TABLE IF NOT EXISTS lessons (
                 id TEXT PRIMARY KEY,
-                content TEXT NOT NULL
+                content TEXT NOT NULL,
+                lesson_number INTEGER,
+                video_id TEXT,
+                srt_content TEXT,
+                summary TEXT,
+                title TEXT,
+                link TEXT,
+                type TEXT
             )''')
             conn.commit()
-        logging.info(f"✅ Database created at: {os.path.abspath(DB_FILE)}")
+            logging.info(f"Database created or already exists at: {os.path.abspath(DB_FILE)}")
     except Exception as e:
-        logging.error(f"❌ Database init error: {e}")
-
-def upgrade_database():
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            columns = [
-                'lesson_number', 'video_id', 'srt_content', 'summary',
-                'title', 'link', 'type'
-            ]
-            for col in columns:
-                try:
-                    c.execute(f"ALTER TABLE lessons ADD COLUMN {col} TEXT")
-                    print(f"✅ تمت إضافة العمود {col}")
-                except sqlite3.OperationalError:
-                    print(f"ℹ️ العمود {col} موجود مسبقًا - تم تجاهله")
-            conn.commit()
-    except Exception as e:
-        print(f"❌ خطأ أثناء تعديل قاعدة البيانات: {e}")
-
+        logging.error(f"Database initialization error: {e}")
 
 def insert_old_lessons_from_json(json_path):
-    
     if not os.path.exists(json_path):
-        print(f"⚠️ ملف {json_path} غير موجود.")
+        print(f"File {json_path} not found.")
         return
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-
-        # نتحقق هل توجد أي دروس مستوردة سابقًا (مثلاً برقم درس > 0)
         c.execute("SELECT COUNT(*) FROM lessons WHERE lesson_number IS NOT NULL")
         count = c.fetchone()[0]
 
         if count > 0:
-            print("📌 تم استيراد الدروس مسبقًا. لن يتم التكرار.")
+            print("Lessons already imported. Skipping.")
             return
 
         with open(json_path, "r", encoding="utf-8") as f:
             lessons = json.load(f)
 
         for i, lesson in enumerate(lessons, start=1):
+            lesson_id = f"old_lesson_{i}"
             content = f"{lesson['title']}\n{lesson['link']}"
             c.execute(
-                "INSERT INTO lessons (content, video_id, srt_content, summary, lesson_number) VALUES (?, ?, ?, ?, ?)",
-                (content, None, None, None, i)
+                "INSERT INTO lessons (id, content, video_id, srt_content, summary, lesson_number, title, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (lesson_id, content, None, None, None, i, lesson.get('title'), lesson.get('link'))
             )
         conn.commit()
-        print(f"✅ تم استيراد {len(lessons)} دروس من JSON.")
+        print(f"Imported {len(lessons)} lessons from JSON.")
 
 
 temp_data = {}
 init_db()
-upgrade_database()
 insert_old_lessons_from_json("videos_list.json")
         
 def download_and_extract_ffmpeg():
