@@ -516,17 +516,14 @@
             
             // استدعاء LibreTranslate API
             async function translateWord(word) {
-                // إذا كانت الكلمة مخزنة مسبقاً، نستخدم الترجمة المخزنة
                 if (translatedWords.has(word)) {
                     return translatedWords.get(word);
                 }
-                
-                // إظهار حالة التحميل
+
                 tooltipContent.innerHTML = '<div class="loading"></div> جار الترجمة...';
-                
+
                 try {
-                    // استدعاء API LibreTranslate
-                    const response = await fetch('https://libretranslate.com/translate', {
+                    const response = await fetch('https://libretranslate.de/translate', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -534,27 +531,40 @@
                         body: JSON.stringify({
                             q: word,
                             source: 'en',
-                            target: 'ar'
+                            target: 'ar',
+                            format: 'text'
                         })
                     });
-                    
+
                     const data = await response.json();
-                    
+
                     if (data && data.translatedText) {
-                        // تخزين الترجمة
                         translatedWords.set(word, data.translatedText);
-                        
-                        // إضافة الكلمة إلى لوحة الكلمات المترجمة
                         addTranslatedWord(word, data.translatedText);
-                        
                         return data.translatedText;
                     } else {
-                        throw new Error('ترجمة غير متوفرة');
+                        throw new Error('فشل في الترجمة من Libre');
+                     }
+                 } catch (error) {
+                    console.warn('LibreTranslate فشل، تجربة MyMemory...');
+
+                     try {
+                         const fallbackResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ar`);
+                         const fallbackData = await fallbackResponse.json();
+
+                        if (fallbackData && fallbackData.responseData && fallbackData.responseData.translatedText) {
+                            const translated = fallbackData.responseData.translatedText;
+                            translatedWords.set(word, translated);
+                            addTranslatedWord(word, translated);
+                            return translated;
+                        } else {
+                            throw new Error('فشل الترجمة من MyMemory');
+                        }
+                    } catch (fallbackError) {
+                        console.error('MyMemory Error:', fallbackError);
+                        showNotification('⚠️ الترجمة غير متوفرة', true);
+                        return '⚠️ الترجمة غير متوفرة';
                     }
-                } catch (error) {
-                    console.error('Error:', error);
-                    showNotification('حدث خطأ في الترجمة', true);
-                    return 'فشل الاتصال';
                 }
             }
             
