@@ -762,7 +762,20 @@ def handle_video_index(message):
 
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ خطأ أثناء عرض الفهرس:\n{e}")
-
+        
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    args = message.text.split()
+    if len(args) > 1:
+        param = args[1]
+        if param == "index":
+            # استدعاء دالة فهرس الفيديو مباشرة
+            handle_video_index(message)
+        else:
+            bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {param}")
+    else:
+        bot.send_message(message.chat.id, "👋 مرحبًا بك في البوت!")
+        
 @bot.message_handler(func=lambda message: True)
 def chat_with_gemini(message):
     try:
