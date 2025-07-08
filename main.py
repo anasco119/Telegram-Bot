@@ -39,7 +39,8 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
-
+temp_data = {}
+user_states = {}
 # إعداد Flask
 app = Flask(__name__)
 
@@ -108,7 +109,7 @@ def insert_old_lessons_from_json(json_path):
 
 
 
-temp_data = {}
+
 init_db()
 insert_old_lessons_from_json("videos_list.json")
         
