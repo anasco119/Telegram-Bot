@@ -18,7 +18,7 @@ from moviepy.config import change_settings
 import zipfile
 import stat  # ضعه أعلى الملف مع الاستيرادات
 from datetime import datetime
-
+from telebot import types
 
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -685,10 +685,70 @@ def handle_video(message):
             temp_data['video_id'] = message.video.file_id
             temp_data['srt_content'] = srt_content
 
-            bot.send_document(message.chat.id, open(SRT_PATH, 'rb'), caption="✅ ملف الترجمة جاهز.")
-            bot.reply_to(message, "📝 أرسل الآن الشرح التمهيدي (لن يُنشر، فقط للتخزين).")
+            # حفظ بعض البيانات المؤقتة
+            temp_data['chat_id'] = message.chat.id
+            temp_data['message_id'] = message.message_id
+
+            # أزرار نعم/لا
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("✅ نعم", callback_data="save_lesson_yes"),
+                types.InlineKeyboardButton("❌ لا", callback_data="save_lesson_no")
+            )
+            bot.send_message(message.chat.id, "📌 هل تريد حفظ بيانات هذا الدرس في قاعدة البيانات؟", reply_markup=markup)
     except Exception as e:
         bot.reply_to(message, f"❌ خطأ أثناء التنزيل أو المعالجة:\n{e}")
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "save_lesson_yes")
+def handle_save_lesson_yes(call):
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, "📝 أرسل الآن عنوان الدرس.")
+    user_states[call.from_user.id] = "awaiting_title"
+
+@bot.message_handler(func=lambda msg: user_states.get(msg.from_user.id) == "awaiting_title")
+def handle_title(msg):
+    temp_data['title'] = msg.text.strip()
+    user_states[msg.from_user.id] = "awaiting_summary"
+    bot.send_message(msg.chat.id, "✍️ أرسل الآن ملخص الدرس (summary).")
+
+@bot.message_handler(func=lambda msg: user_states.get(msg.from_user.id) == "awaiting_summary")
+def handle_summary(msg):
+    summary = msg.text.strip()
+
+    # توليد الرابط التلقائي من معرف القناة + message_id
+    channel_base = "https://t.me/EnglishConvs"
+    video_link = f"{channel_base}/{temp_data['message_id']}"
+    lesson_number = temp_data['lesson_number']
+    lesson_id = temp_data['lesson_id']
+    title = temp_data.get('title', f"Lesson {lesson_number}")
+
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO lessons (id, content, lesson_number, video_id, srt_content, summary, title, link, type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                lesson_id,
+                "video",
+                lesson_number,
+                temp_data['video_id'],
+                temp_data['srt_content'],
+                summary,
+                title,
+                video_link,
+                "video"
+            ))
+            conn.commit()
+
+        bot.send_message(msg.chat.id, f"✅ تم حفظ الدرس: {title} (رقم {lesson_number}) بنجاح.")
+    except Exception as e:
+        bot.send_message(msg.chat.id, f"❌ حدث خطأ أثناء حفظ البيانات:\n{e}")
+    finally:
+        user_states.pop(msg.from_user.id, None)
+        temp_data.clear()
 
 
 @bot.message_handler(commands=['import_old_lessons'])
@@ -701,41 +761,9 @@ def import_lessons_command(message):
         insert_old_lessons_from_json("videos_list.json")
         bot.reply_to(message, "✅ تم استيراد الدروس القديمة بنجاح.")
     except Exception as e:
-        bot.reply_to(message, f"❌ حدث خطأ أثناء الاستيراد:\n{e}")
+        bot.reply_to(message, f"❌ حدث خطأ أثناء الاستيراد:\n{e})
 
-
-@bot.channel_post_handler(content_types=['video'])
-def handle_channel_video(message):
-    try:
-        if message.chat.username != "EnglishConvs":
-            return
-
-        caption = message.caption or ""
-        match = re.search(r'Lesson\s+(\d+):\s*(.+)', caption, re.IGNORECASE)
-        if not match:
-            print("⚠️ لا توجد كلمات مفتاحية مطابقة في الكابشن.")
-            return
-
-        lesson_number = int(match.group(1))
-        title = match.group(2).strip()
-        video_id = message.video.file_id
-        lesson_id = f"chan_{message.message_id}"
-
-        # ✅ توليد الرابط المباشر للمنشور
-        link = f"https://t.me/{message.chat.username}/{message.message_id}"
-
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            c.execute('''INSERT OR IGNORE INTO lessons 
-                         (id, lesson_number, video_id, title, link, type) 
-                         VALUES (?, ?, ?, ?, ?, ?)''',
-                      (lesson_id, lesson_number, video_id, title, link, 'video'))
-            conn.commit()
-
-        print(f"✅ تم حفظ درس جديد من القناة: Lesson {lesson_number}")
-    except Exception as e:
-        print(f"❌ خطأ أثناء معالجة فيديو من القناة: {e}")
-
+        
 @bot.message_handler(commands=['index'])
 def handle_video_index(message):
     try:
@@ -819,3 +847,6 @@ if __name__ == "__main__":
     app.run(host='0.0.0.0', port=port)
     
 
+
+
+# 
