@@ -713,6 +713,15 @@ def handle_title(msg):
     user_states[msg.from_user.id] = "awaiting_summary"
     bot.send_message(msg.chat.id, "✍️ أرسل الآن ملخص الدرس (summary).")
 
+
+@bot.callback_query_handler(func=lambda call: call.data == "save_lesson_no")
+def handle_save_lesson_no(call):
+    bot.answer_callback_query(call.id, "🚫 تم تجاهل حفظ الدرس.")
+    temp_data.clear()
+    user_states.pop(call.from_user.id, None)
+
+
+
 @bot.message_handler(func=lambda msg: user_states.get(msg.from_user.id) == "awaiting_summary")
 def handle_summary(msg):
     summary = msg.text.strip()
@@ -845,8 +854,4 @@ if __name__ == "__main__":
     set_webhook()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
-    
-
-
-
-# 
+ 
