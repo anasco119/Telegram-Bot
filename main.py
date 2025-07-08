@@ -691,24 +691,65 @@ def handle_video(message):
             # حفظ بعض البيانات المؤقتة
             temp_data['chat_id'] = message.chat.id
             temp_data['message_id'] = message.message_id
+            temp_data['message_id_private'] = message.message_id
+            temp_data['video_file_id'] = message.video.file_id
 
-            # أزرار نعم/لا
+
+            # أزرار لنشر الفيديو
             markup = types.InlineKeyboardMarkup()
             markup.add(
-                types.InlineKeyboardButton("✅ نعم", callback_data="save_lesson_yes"),
-                types.InlineKeyboardButton("❌ لا", callback_data="save_lesson_no")
+                types.InlineKeyboardButton("✅ نعم", callback_data="publish_video_yes"),
+                types.InlineKeyboardButton("❌ لا", callback_data="publish_video_no")
             )
-            bot.send_message(message.chat.id, "📌 هل تريد حفظ بيانات هذا الدرس في قاعدة البيانات؟", reply_markup=markup)
+            bot.send_message(message.chat.id, "📤 هل تريد نشر الفيديو في القناة الآن؟", reply_markup=markup)
+            
     except Exception as e:
         bot.reply_to(message, f"❌ خطأ أثناء التنزيل أو المعالجة:\n{e}")
 
 
-
-@bot.callback_query_handler(func=lambda call: call.data == "save_lesson_yes")
-def handle_save_lesson_yes(call):
+@bot.callback_query_handler(func=lambda call: call.data == "publish_video_yes")
+def handle_publish_yes(call):
     bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, "📝 أرسل الآن عنوان الدرس.")
-    user_states[call.from_user.id] = "awaiting_title"
+    user_states[call.from_user.id] = "awaiting_caption"
+    bot.send_message(call.message.chat.id, "📝 أرسل الآن الكابشن الذي سيتم نشره مع الفيديو في القناة.")
+
+
+@bot.message_handler(func=lambda msg: user_states.get(msg.from_user.id) == "awaiting_caption")
+def handle_caption(msg):
+    caption = msg.text.strip()
+    user_id = msg.from_user.id
+
+    try:
+        # نشر الفيديو في القناة
+        post = bot.send_video(
+            chat_id='@EnglishConvs',
+            video=temp_data['video_file_id'],
+            caption=caption
+        )
+
+        # توليد رقم الدرس تلقائيًا
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT MAX(lesson_number) FROM lessons")
+            result = c.fetchone()
+            last_number = result[0] if result and result[0] else 0
+            new_number = last_number + 1
+
+        temp_data['lesson_number'] = new_number
+        temp_data['lesson_id'] = datetime.now().strftime("%Y%m%d%H%M%S")
+        temp_data['published_message_id'] = post.message_id
+        temp_data['link'] = f"https://t.me/EnglishConvs/{post.message_id}"
+
+        bot.send_message(msg.chat.id, "📌 تم نشر الفيديو بنجاح في القناة.\n📝 الآن أرسل عنوان الدرس.")
+        user_states[user_id] = "awaiting_title"
+    except Exception as e:
+        bot.send_message(msg.chat.id, f"❌ فشل في نشر الفيديو:\n{e}")
+        user_states.pop(user_id, None)
+        temp_data.clear()
+
+
+
+
 
 @bot.message_handler(func=lambda msg: user_states.get(msg.from_user.id) == "awaiting_title")
 def handle_title(msg):
@@ -717,7 +758,7 @@ def handle_title(msg):
     bot.send_message(msg.chat.id, "✍️ أرسل الآن ملخص الدرس (summary).")
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "save_lesson_no")
+@bot.callback_query_handler(func=lambda call: call.data == "publish_video_no")
 def handle_save_lesson_no(call):
     bot.answer_callback_query(call.id, "🚫 تم تجاهل حفظ الدرس.")
     temp_data.clear()
@@ -731,7 +772,7 @@ def handle_summary(msg):
 
     # توليد الرابط التلقائي من معرف القناة + message_id
     channel_base = "https://t.me/EnglishConvs"
-    video_link = f"{channel_base}/{temp_data['message_id']}"
+    video_link = temp_data.get('link', 'رابط غير متوفر')
     lesson_number = temp_data['lesson_number']
     lesson_id = temp_data['lesson_id']
     title = temp_data.get('title', f"Lesson {lesson_number}")
