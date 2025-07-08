@@ -672,6 +672,8 @@ def handle_video(message):
             with open(SRT_PATH, 'r', encoding='utf-8') as srt_file:
                 srt_content = srt_file.read()
 
+            bot.send_document(message.chat.id, open(SRT_PATH, 'rb'), caption="✅ ملف الترجمة جاهز.")
+
             # توليد رقم الدرس تلقائيًا
             with sqlite3.connect(DB_FILE) as conn:
                 c = conn.cursor()
@@ -759,6 +761,14 @@ def handle_summary(msg):
     finally:
         user_states.pop(msg.from_user.id, None)
         temp_data.clear()
+    # حذف الملفات المؤقتة
+        try:
+            if os.path.exists(SRT_PATH):
+                os.remove(SRT_PATH)
+            if os.path.exists(VIDEO_PATH):
+                os.remove(VIDEO_PATH)
+        except Exception as cleanup_error:
+            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
 
 
 @bot.message_handler(commands=['import_old_lessons'])
@@ -855,4 +865,3 @@ if __name__ == "__main__":
     set_webhook()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
- 
