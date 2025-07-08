@@ -646,14 +646,21 @@ def process_text_for_quiz(message):
 # ✅ أمر /start
 @bot.message_handler(commands=['subtitle'])
 def handle_start(message):
+    if not message.from_user or message.chat.type != "private":
+        return
     if message.from_user.id == ALLOWED_USER_ID:
         bot.reply_to(message, "👋 أرسل فيديو وسأقوم بتحويله إلى ملف ترجمة.")
     else:
         bot.reply_to(message, "❌ هذا البوت مخصص فقط للأدمن.")
 
+
+
+
 # ✅ استقبال فيديو من الأدمن فقط
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
+    if not message.from_user or message.chat.type != "private":
+        return
     if message.from_user.id != ALLOWED_USER_ID:
         bot.reply_to(message, "❌ هذا الأمر متاح فقط للأدمن.")
         return
@@ -811,6 +818,8 @@ def handle_summary(msg):
 
 @bot.message_handler(commands=['import_old_lessons'])
 def import_lessons_command(message):
+    if not message.from_user or message.chat.type != "private":
+        return
     if message.from_user.id != ALLOWED_USER_ID:
         bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
         return
@@ -824,6 +833,8 @@ def import_lessons_command(message):
         
 @bot.message_handler(commands=['index'])
 def handle_video_index(message):
+    if not message.from_user or message.chat.type != "private":
+        return
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
@@ -851,6 +862,7 @@ def handle_video_index(message):
         
 @bot.message_handler(commands=['start'])
 def handle_start(message):
+    
     args = message.text.split()
     if len(args) > 1:
         param = args[1]
