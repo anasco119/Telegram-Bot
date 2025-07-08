@@ -685,13 +685,10 @@ def handle_video(message):
             # تخزين مؤقت
             temp_data['lesson_number'] = new_number
             temp_data['lesson_id'] = datetime.now().strftime("%Y%m%d%H%M%S")
-            temp_data['video_id'] = message.video.file_id
             temp_data['srt_content'] = srt_content
 
             # حفظ بعض البيانات المؤقتة
-            temp_data['chat_id'] = message.chat.id
-            temp_data['message_id'] = message.message_id
-            temp_data['message_id_private'] = message.message_id
+            
             temp_data['video_file_id'] = message.video.file_id
 
 
@@ -787,7 +784,7 @@ def handle_summary(msg):
                 lesson_id,
                 "video",
                 lesson_number,
-                temp_data['video_id'],
+                temp_data['video_file_id'],
                 temp_data['srt_content'],
                 summary,
                 title,
