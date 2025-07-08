@@ -771,7 +771,7 @@ def import_lessons_command(message):
         insert_old_lessons_from_json("videos_list.json")
         bot.reply_to(message, "✅ تم استيراد الدروس القديمة بنجاح.")
     except Exception as e:
-        bot.reply_to(message, f"❌ حدث خطأ أثناء الاستيراد:\n{e})
+        bot.reply_to(message, f"❌ حدث خطأ أثناء الاستيراد:\n{e}")
 
         
 @bot.message_handler(commands=['index'])
