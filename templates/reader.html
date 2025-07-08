@@ -503,11 +503,22 @@
                         if (word.trim().length > 0) {
                             const span = document.createElement('span');
                             span.textContent = word;
+
+                            // تحديد اتجاه الكلمة
+                            if (/^[A-Za-z0-9]/.test(word)) {
+                                span.setAttribute('dir', 'ltr');
+                           } else if (/^[\u0600-\u06FF]/.test(word)) {
+                                span.setAttribute('dir', 'rtl');
+                           } else {
+                            span.setAttribute('dir', 'auto');
+                            }   
+
                             fragment.appendChild(span);
                         } else {
                             // الحفاظ على المسافات والأسطر الجديدة
                             fragment.appendChild(document.createTextNode(word));
                         }
+
                     });
                     
                     node.parentNode.replaceChild(fragment, node);
