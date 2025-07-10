@@ -19,7 +19,7 @@ import zipfile
 import stat  # ضعه أعلى الملف مع الاستيرادات
 from datetime import datetime
 from telebot import types
-
+import uuid
 # الحصول على مفاتيح الـ API من المتغيرات البيئية
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -37,8 +37,9 @@ SRT_PATH = "output.srt"
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-import uuid
 
+
+temp_data['video_id'] = message.video.file_id
 lesson_id = str(uuid.uuid4())
 
 temp_data = {}
@@ -930,7 +931,7 @@ def handle_summary(msg):
         # حفظ معرف رسالة التأكيد في قاعدة البيانات إذا أردت
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute("UPDATE lessons SET prompt_message_id = ? WHERE video_id = ?", (prompt.message_id, temp_data['video_id']))
+            c.execute("UPDATE lessons SET prompt_message_id = ? WHERE video_id = ?", (prompt.message_id, temp_data['video_file_id']))
             conn.commit()
     except Exception as e:
         bot.send_message(msg.chat.id, f"❌ حدث خطأ أثناء حفظ البيانات:\n{e}")
