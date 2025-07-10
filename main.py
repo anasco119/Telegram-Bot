@@ -62,11 +62,12 @@ import logging
 import json
 
 DB_FILE = 'lessons.db'
-
 def init_db():
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
+            
+            # إنشاء جدول الدروس
             c.execute('''CREATE TABLE IF NOT EXISTS lessons (
                 id TEXT PRIMARY KEY,
                 content TEXT NOT NULL,
@@ -78,21 +79,29 @@ def init_db():
                 link TEXT,
                 type TEXT
             )''')
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS flashcards (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    lesson_id TEXT,
-                    video_id TEXT,
-                    prompt_message_id INTEGER,
-                    line TEXT,             -- السطر الأصلي من SRT
-                    explanation TEXT,      -- الشرح القصصي
-                    vocab_notes TEXT       -- معاني الكلمات أو ملاحظات
-            )
-            ''')
+
+            # تعديل الجدول لإضافة عمود prompt_message_id إن لم يكن موجودًا
+            try:
+                c.execute("ALTER TABLE lessons ADD COLUMN prompt_message_id INTEGER")
+            except sqlite3.OperationalError:
+                pass  # العمود موجود بالفعل
+
+            # إنشاء جدول البطاقات
+            c.execute('''CREATE TABLE IF NOT EXISTS flashcards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id TEXT,
+                video_id TEXT,
+                prompt_message_id INTEGER,
+                line TEXT,
+                explanation TEXT,
+                vocab_notes TEXT
+            )''')
+
             conn.commit()
-            logging.info(f"Database created or already exists at: {os.path.abspath(DB_FILE)}")
+            logging.info(f"Database created or updated at: {os.path.abspath(DB_FILE)}")
     except Exception as e:
         logging.error(f"Database initialization error: {e}")
+
 
 def insert_old_lessons_from_json(json_path):
     if not os.path.exists(json_path):
@@ -938,56 +947,29 @@ def handle_summary(msg):
     except Exception as e:
         bot.send_message(msg.chat.id, f"❌ حدث خطأ أثناء حفظ البيانات:\n{e}")
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("generate_flashcards_"))
 def handle_generate_flashcards(call):
     bot.answer_callback_query(call.id)
-    video_id = call.data.split("_")[-1]
+
+    lesson_id = call.data.split("_")[-1]
 
     try:
-        # ✅ الخطوة 1: توليد البطاقات
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute("SELECT srt_content, summary FROM lessons WHERE video_id = ?", (video_file_id,))
+            # استخرج srt_content و summary و video_id من قاعدة البيانات
+            c.execute("SELECT srt_content, summary, video_id FROM lessons WHERE id = ?", (lesson_id,))
             result = c.fetchone()
 
         if not result:
             bot.send_message(call.message.chat.id, "❌ لم يتم العثور على محتوى هذا الدرس.")
             return
 
-        srt_content, summary = result
+        srt_content, summary, video_id = result  # ✅ الآن video_id موجود
         bot.send_message(call.message.chat.id, "⚙️ جاري توليد البطاقات، يرجى الانتظار...")
 
         generate_flashcards_for_lesson(video_id, srt_content, summary)
 
         bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
-
-        # ✅ زر تأكيد إرسال إشعار القناة
-        markup = types.InlineKeyboardMarkup()
-        markup.add(
-            types.InlineKeyboardButton("✅ نعم", callback_data="yes_Noto"),
-            types.InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
-        )
-        bot.send_message(
-            call.message.chat.id,
-            "📣 هل تريد إرسال إشعار إلى القناة؟",
-            reply_markup=markup
-        )
-
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
-
-    finally:
-        user_states.pop(call.from_user.id, None)
-        temp_data.clear()
-        try:
-            if os.path.exists(SRT_PATH):
-                os.remove(SRT_PATH)
-            if os.path.exists(VIDEO_PATH):
-                os.remove(VIDEO_PATH)
-        except Exception as cleanup_error:
-            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
-
     
 
 bot_username = "Oiuhelper_bot"
