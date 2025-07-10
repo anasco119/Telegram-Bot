@@ -972,9 +972,8 @@ def handle_generate_flashcards(call):
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")    
 
-bot_username = "Oiuhelper_bot"
+        bot_username = "Oiuhelper_bot"
 
-    try:
         lesson_id = temp_data.get("lesson_id")
         published_message_id = temp_data.get("published_message_id")
         bot_username = BOT_USERNAME  # تأكد من تعريف هذا مسبقًا كـ string
@@ -1018,8 +1017,7 @@ bot_username = "Oiuhelper_bot"
 
         bot.send_message(call.message.chat.id, "📣 تم إرسال الأنشطة إلى القناة بنجاح.")
 
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء إرسال الأنشطة:\n{e}")
+    
     finally:
         user_states.pop(msg.from_user.id, None)
         temp_data.clear()
