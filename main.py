@@ -1007,7 +1007,7 @@ def handle_send_notification(call):
 
         lesson_id = temp_data.get("lesson_id")
         published_message_id = temp_data.get("published_message_id")
-        bot_username = BOT_USERNAME
+        
 
         if not lesson_id or not published_message_id:
             bot.send_message(call.message.chat.id, "❌ لا يمكن متابعة الإشعار لعدم وجود بيانات الدرس.")
