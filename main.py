@@ -1207,27 +1207,27 @@ def handle_video_index(message):
         
 @bot.message_handler(commands=['start'])
 def handle_start(message):
-    
     args = message.text.split()
+
     if len(args) > 1:
-        param = args[1]
-        if param == "index":
-            # استدعاء دالة فهرس الفيديو مباشرة
+        payload = args[1]  # استخدم اسم موحّد بدلاً من param
+
+        if payload == "index":
             handle_video_index(message)
-            
-        if payload.startswith("lesson_"):
+
+        elif payload.startswith("lesson_"):
             lesson_id = payload.replace("lesson_", "")
             show_flashcards(message.chat.id, lesson_id)
+
         elif payload.startswith("quiz_"):
             lesson_id = payload.replace("quiz_", "")
             start_quiz(message.chat.id, lesson_id)
 
-
         else:
-            bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {param}")
+            bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {payload}")
+
     else:
         bot.send_message(message.chat.id, "👋 مرحبًا بك في البوت!")
-
 
 
 @bot.message_handler(func=lambda message: True)
