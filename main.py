@@ -998,7 +998,7 @@ def handle_generate_flashcards(call):
             
 
 
-bot_username = "Oiuhelper_bot"
+bot_username = "AIChatGeniebot"
 
 @bot.callback_query_handler(func=lambda call: call.data == "yes_Noto")
 def handle_send_notification(call):
