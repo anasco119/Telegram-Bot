@@ -974,63 +974,63 @@ def handle_generate_flashcards(call):
 
 bot_username = "Oiuhelper_bot"
 
-try:
-    lesson_id = temp_data.get("lesson_id")
-    published_message_id = temp_data.get("published_message_id")
-    bot_username = BOT_USERNAME  # تأكد من تعريف هذا مسبقًا كـ string
-
-    if not lesson_id or not published_message_id:
-        bot.send_message(call.message.chat.id, "❌ لا يمكن متابعة الإشعار لعدم وجود بيانات الدرس.")
-        return
-
-    # استرجاع عنوان الدرس من قاعدة البيانات
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
-        row = c.fetchone()
-
-    title = row[0] if row else "درس جديد"
-
-    # توليد النص مع العنوان
-    message_text = f"🆕 درس إنجليزي جديد وممتع بانتظارك: *{title}*\n\n🎯 اختر أحد الأنشطة لتبدأ:"
-
-    # إعداد الأزرار
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("🧠 ابدأ الشرح", url=f"https://t.me/{bot_username}?start=lesson_{lesson_id}"),
-        InlineKeyboardButton("📝 اختبر نفسك", url=f"https://t.me/{bot_username}?start=quiz_{lesson_id}")
-    )
-
-    # إرسال الرسالة في القناة كرد على الفيديو
-    prompt = bot.send_message(
-        chat_id='@EnglishConvs',
-        text=message_text,
-        reply_to_message_id=published_message_id,
-        reply_markup=markup,
-        parse_mode="Markdown"
-    )
-
-    # حفظ prompt_message_id في lessons
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("UPDATE lessons SET prompt_message_id = ? WHERE id = ?", (prompt.message_id, lesson_id))
-        conn.commit()
-
-    bot.send_message(call.message.chat.id, "📣 تم إرسال الأنشطة إلى القناة بنجاح.")
-
-except Exception as e:
-    bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء إرسال الأنشطة:\n{e}")
-finally:
-    user_states.pop(msg.from_user.id, None)
-    temp_data.clear()
-    # حذف الملفات المؤقتة
     try:
-        if os.path.exists(SRT_PATH):
-            os.remove(SRT_PATH)
-        if os.path.exists(VIDEO_PATH):
-            os.remove(VIDEO_PATH)
-    except Exception as cleanup_error:
-        print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
+        lesson_id = temp_data.get("lesson_id")
+        published_message_id = temp_data.get("published_message_id")
+        bot_username = BOT_USERNAME  # تأكد من تعريف هذا مسبقًا كـ string
+
+        if not lesson_id or not published_message_id:
+            bot.send_message(call.message.chat.id, "❌ لا يمكن متابعة الإشعار لعدم وجود بيانات الدرس.")
+            return
+
+        # استرجاع عنوان الدرس من قاعدة البيانات
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
+            row = c.fetchone()
+
+        title = row[0] if row else "درس جديد"
+
+        # توليد النص مع العنوان
+        message_text = f"🆕 درس إنجليزي جديد وممتع بانتظارك: *{title}*\n\n🎯 اختر أحد الأنشطة لتبدأ:"
+
+        # إعداد الأزرار
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("🧠 ابدأ الشرح", url=f"https://t.me/{bot_username}?start=lesson_{lesson_id}"),
+            InlineKeyboardButton("📝 اختبر نفسك", url=f"https://t.me/{bot_username}?start=quiz_{lesson_id}")
+        )
+
+        # إرسال الرسالة في القناة كرد على الفيديو
+        prompt = bot.send_message(
+            chat_id='@EnglishConvs',
+            text=message_text,
+            reply_to_message_id=published_message_id,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+
+        # حفظ prompt_message_id في lessons
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("UPDATE lessons SET prompt_message_id = ? WHERE id = ?", (prompt.message_id, lesson_id))
+            conn.commit()
+
+        bot.send_message(call.message.chat.id, "📣 تم إرسال الأنشطة إلى القناة بنجاح.")
+
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء إرسال الأنشطة:\n{e}")
+    finally:
+        user_states.pop(msg.from_user.id, None)
+        temp_data.clear()
+        # حذف الملفات المؤقتة
+        try:
+            if os.path.exists(SRT_PATH):
+                os.remove(SRT_PATH)
+            if os.path.exists(VIDEO_PATH):
+                os.remove(VIDEO_PATH)
+        except Exception as cleanup_error:
+            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_Noto")
 def handle_cancel_noto(call):
