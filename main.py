@@ -1027,10 +1027,11 @@ def handle_send_notification(call):
         prompt = bot.send_message(
             chat_id='@ans09031',
             text=message_text,
-            reply_to_message_id=published_message_id,
+            # reply_to_message_id=published_message_id,  ← علق هذا السطر مؤقتًا
             reply_markup=markup,
             parse_mode="Markdown"
         )
+        
 
         # تحديث معرف الرسالة الجديدة
         with sqlite3.connect(DB_FILE) as conn:
