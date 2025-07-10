@@ -39,7 +39,7 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
-temp_data['video_id'] = message.video.file_id
+
 lesson_id = str(uuid.uuid4())
 
 temp_data = {}
@@ -786,6 +786,8 @@ def handle_video(message):
         downloaded_file = bot.download_file(file_info.file_path)
         with open(VIDEO_PATH, 'wb') as f:
             f.write(downloaded_file)
+
+        temp_data['video_id'] = message.video.file_id
 
         success = process_video_to_srt()
 
