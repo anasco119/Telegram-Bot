@@ -930,7 +930,7 @@ def handle_summary(msg):
             # ✅ بعد الحفظ الناجح: عرض أزرار توليد البطاقات
         markup = types.InlineKeyboardMarkup()
         markup.add(
-            types.InlineKeyboardButton("✅ نعم", callback_data=f"yes_Noto_{lesson_id}"),
+            InlineKeyboardButton("✅ نعم، أنشئ البطاقات", callback_data=f"generate_flashcards_{lesson_id}"),
             types.InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_flashcards")
     )
         prompt = bot.send_message(
