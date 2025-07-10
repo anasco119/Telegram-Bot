@@ -930,7 +930,7 @@ def handle_summary(msg):
             # ✅ بعد الحفظ الناجح: عرض أزرار توليد البطاقات
         markup = types.InlineKeyboardMarkup()
         markup.add(
-            types.InlineKeyboardButton("🧠 نعم، أنشئ البطاقات", callback_data=f"generate_flashcards_{temp_data['lesson_id']}"),
+            types.InlineKeyboardButton("✅ نعم", callback_data=f"yes_Noto_{lesson_id}"),
             types.InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_flashcards")
     )
         prompt = bot.send_message(
@@ -1000,8 +1000,9 @@ def handle_generate_flashcards(call):
 
 bot_username = "AIChatGeniebot"
 
-@bot.callback_query_handler(func=lambda call: call.data == "yes_Noto")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("yes_Noto_"))
 def handle_send_notification(call):
+    lesson_id = call.data.split("_")[-1]
     try:
         bot.answer_callback_query(call.id)
 
