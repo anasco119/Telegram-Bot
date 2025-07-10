@@ -970,10 +970,10 @@ def handle_generate_flashcards(call):
         generate_flashcards_for_lesson(video_id, srt_content, summary)
 
         bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
-        # ✅ رسالة تأكيد إرسال الإشعار إلى القناة
+        # بعد نجاح إنشاء البطاقات:
         markup = InlineKeyboardMarkup()
         markup.add(
-            InlineKeyboardButton("✅ نعم", callback_data="yes_Noto"),
+            InlineKeyboardButton("✅ نعم", callback_data=f"yes_Noto_{lesson_id}"),
             InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
         )
 
@@ -981,7 +981,7 @@ def handle_generate_flashcards(call):
             call.message.chat.id,
             "📣 هل تريد إرسال إشعار إلى القناة؟",
             reply_markup=markup
-        )
+                            )
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
 
@@ -1002,24 +1002,20 @@ bot_username = "AIChatGeniebot"
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("yes_Noto_"))
 def handle_send_notification(call):
-    lesson_id = call.data.split("_")[-1]
     try:
         bot.answer_callback_query(call.id)
 
-        lesson_id = temp_data.get("lesson_id")
-        published_message_id = temp_data.get("published_message_id")
-        
-
-        if not lesson_id or not published_message_id:
-            bot.send_message(call.message.chat.id, "❌ لا يمكن متابعة الإشعار لعدم وجود بيانات الدرس.")
-            return
-
+        lesson_id = call.data.split("_")[-1]  # ✅ بدل temp_data
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
+            c.execute("SELECT title, prompt_message_id FROM lessons WHERE id = ?", (lesson_id,))
             row = c.fetchone()
 
-        title = row[0] if row else "درس جديد"
+        if not row:
+            bot.send_message(call.message.chat.id, "❌ لم يتم العثور على بيانات هذا الدرس.")
+            return
+
+        title, published_message_id = row
         message_text = f"🆕 درس إنجليزي جديد وممتع بانتظارك: *{title}*\n\n🎯 اختر أحد الأنشطة لتبدأ:"
 
         markup = InlineKeyboardMarkup()
@@ -1036,7 +1032,7 @@ def handle_send_notification(call):
             parse_mode="Markdown"
         )
 
-        # تحديث الجدول
+        # تحديث معرف الرسالة الجديدة
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("UPDATE lessons SET prompt_message_id = ? WHERE id = ?", (prompt.message_id, lesson_id))
@@ -1046,7 +1042,6 @@ def handle_send_notification(call):
     
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء إرسال الإشعار:\n{e}")
-
     finally:
         user_states.pop(call.from_user.id, None)
         temp_data.clear()
