@@ -1047,6 +1047,10 @@ def handle_send_notification(call):
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء إرسال الإشعار:\n{e}")
 
+    finally:
+        user_states.pop(call.from_user.id, None)
+        temp_data.clear()
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_Noto")
 def handle_cancel_noto(call):
