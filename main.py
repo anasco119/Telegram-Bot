@@ -37,7 +37,9 @@ SRT_PATH = "output.srt"
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+import uuid
 
+lesson_id = str(uuid.uuid4())
 
 temp_data = {}
 user_states = {}
@@ -802,7 +804,7 @@ def handle_video(message):
 
             # تخزين مؤقت
             temp_data['lesson_number'] = new_number
-            temp_data['lesson_id'] = datetime.now().strftime("%Y%m%d%H%M%S")
+            temp_data['lesson_id'] = str(uuid.uuid4())
             temp_data['srt_content'] = srt_content
 
             # حفظ بعض البيانات المؤقتة
@@ -934,73 +936,86 @@ def handle_summary(msg):
         bot.send_message(msg.chat.id, f"❌ حدث خطأ أثناء حفظ البيانات:\n{e}")
 
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("generate_flashcards_"))
 def handle_generate_flashcards(call):
     bot.answer_callback_query(call.id)
-
     video_id = call.data.split("_")[-1]
 
     try:
+        # ✅ الخطوة 1: توليد البطاقات
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("SELECT srt_content, summary FROM lessons WHERE video_id = ?", (video_id,))
             result = c.fetchone()
 
-        if result:
-            srt_content, summary = result
-            bot.send_message(call.message.chat.id, "⚙️ جاري توليد البطاقات، يرجى الانتظار...")
-
-            generate_flashcards_for_lesson(video_id, srt_content, summary)
-
-            bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
-
-            # ✅ زر إشعار القناة
-            markup = types.InlineKeyboardMarkup()
-            markup.add(
-                types.InlineKeyboardButton("✅ نعم", callback_data="yes_Noto"),
-                types.InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
-            )
-            bot.send_message(
-                call.message.chat.id,
-                "📣 هل تريد إرسال إشعار إلى القناة؟",
-                reply_markup=markup
-            )
-
-        else:
+        if not result:
             bot.send_message(call.message.chat.id, "❌ لم يتم العثور على محتوى هذا الدرس.")
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")    
+            return
 
-        bot_username = "Oiuhelper_bot"
+        srt_content, summary = result
+        bot.send_message(call.message.chat.id, "⚙️ جاري توليد البطاقات، يرجى الانتظار...")
+
+        generate_flashcards_for_lesson(video_id, srt_content, summary)
+
+        bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
+
+        # ✅ زر تأكيد إرسال إشعار القناة
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ نعم", callback_data="yes_Noto"),
+            types.InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
+        )
+        bot.send_message(
+            call.message.chat.id,
+            "📣 هل تريد إرسال إشعار إلى القناة؟",
+            reply_markup=markup
+        )
+
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
+
+    finally:
+        user_states.pop(call.from_user.id, None)
+        temp_data.clear()
+        try:
+            if os.path.exists(SRT_PATH):
+                os.remove(SRT_PATH)
+            if os.path.exists(VIDEO_PATH):
+                os.remove(VIDEO_PATH)
+        except Exception as cleanup_error:
+            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
+
+    
+
+bot_username = "Oiuhelper_bot"
+
+@bot.callback_query_handler(func=lambda call: call.data == "yes_Noto")
+def handle_send_notification(call):
+    try:
+        bot.answer_callback_query(call.id)
 
         lesson_id = temp_data.get("lesson_id")
         published_message_id = temp_data.get("published_message_id")
-        bot_username = BOT_USERNAME  # تأكد من تعريف هذا مسبقًا كـ string
+        bot_username = BOT_USERNAME
 
         if not lesson_id or not published_message_id:
             bot.send_message(call.message.chat.id, "❌ لا يمكن متابعة الإشعار لعدم وجود بيانات الدرس.")
             return
 
-        # استرجاع عنوان الدرس من قاعدة البيانات
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
             row = c.fetchone()
 
         title = row[0] if row else "درس جديد"
-
-        # توليد النص مع العنوان
         message_text = f"🆕 درس إنجليزي جديد وممتع بانتظارك: *{title}*\n\n🎯 اختر أحد الأنشطة لتبدأ:"
 
-        # إعداد الأزرار
         markup = InlineKeyboardMarkup()
         markup.add(
             InlineKeyboardButton("🧠 ابدأ الشرح", url=f"https://t.me/{bot_username}?start=lesson_{lesson_id}"),
             InlineKeyboardButton("📝 اختبر نفسك", url=f"https://t.me/{bot_username}?start=quiz_{lesson_id}")
         )
 
-        # إرسال الرسالة في القناة كرد على الفيديو
         prompt = bot.send_message(
             chat_id='@EnglishConvs',
             text=message_text,
@@ -1009,26 +1024,17 @@ def handle_generate_flashcards(call):
             parse_mode="Markdown"
         )
 
-        # حفظ prompt_message_id في lessons
+        # تحديث الجدول
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("UPDATE lessons SET prompt_message_id = ? WHERE id = ?", (prompt.message_id, lesson_id))
             conn.commit()
 
         bot.send_message(call.message.chat.id, "📣 تم إرسال الأنشطة إلى القناة بنجاح.")
-
     
-    finally:
-        user_states.pop(msg.from_user.id, None)
-        temp_data.clear()
-        # حذف الملفات المؤقتة
-        try:
-            if os.path.exists(SRT_PATH):
-                os.remove(SRT_PATH)
-            if os.path.exists(VIDEO_PATH):
-                os.remove(VIDEO_PATH)
-        except Exception as cleanup_error:
-            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء إرسال الإشعار:\n{e}")
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_Noto")
 def handle_cancel_noto(call):
