@@ -970,7 +970,21 @@ def handle_generate_flashcards(call):
         generate_flashcards_for_lesson(video_id, srt_content, summary)
 
         bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
-    
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
+
+    finally:
+        user_states.pop(call.from_user.id, None)
+        temp_data.clear()
+        try:
+            if os.path.exists(SRT_PATH):
+                os.remove(SRT_PATH)
+            if os.path.exists(VIDEO_PATH):
+                os.remove(VIDEO_PATH)
+        except Exception as cleanup_error:
+            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
+            
+
 
 bot_username = "Oiuhelper_bot"
 
