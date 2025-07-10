@@ -970,6 +970,18 @@ def handle_generate_flashcards(call):
         generate_flashcards_for_lesson(video_id, srt_content, summary)
 
         bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
+        # ✅ رسالة تأكيد إرسال الإشعار إلى القناة
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("✅ نعم", callback_data="yes_Noto"),
+            InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
+        )
+
+        bot.send_message(
+            call.message.chat.id,
+            "📣 هل تريد إرسال إشعار إلى القناة؟",
+            reply_markup=markup
+        )
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
 
