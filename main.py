@@ -921,7 +921,7 @@ def handle_summary(msg):
             # ✅ بعد الحفظ الناجح: عرض أزرار توليد البطاقات
         markup = types.InlineKeyboardMarkup()
         markup.add(
-            types.InlineKeyboardButton("🧠 نعم، أنشئ البطاقات", callback_data=f"generate_flashcards_{temp_data['video_id']}"),
+            types.InlineKeyboardButton("🧠 نعم، أنشئ البطاقات", callback_data=f"generate_flashcards_{temp_data['lesson_id']}"),
             types.InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_flashcards")
     )
         prompt = bot.send_message(
@@ -948,7 +948,7 @@ def handle_generate_flashcards(call):
         # ✅ الخطوة 1: توليد البطاقات
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute("SELECT srt_content, summary FROM lessons WHERE video_id = ?", (video_id,))
+            c.execute("SELECT srt_content, summary FROM lessons WHERE video_id = ?", (video_file_id,))
             result = c.fetchone()
 
         if not result:
