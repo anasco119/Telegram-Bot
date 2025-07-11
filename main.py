@@ -871,7 +871,7 @@ def handle_caption(msg):
             new_number = last_number + 1
 
         temp_data['lesson_number'] = new_number
-        temp_data['lesson_id'] = datetime.now().strftime("%Y%m%d%H%M%S")
+        
         temp_data['published_message_id'] = post.message_id
         temp_data['link'] = f"https://t.me/EnglishConvs/{post.message_id}"
 
