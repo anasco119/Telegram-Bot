@@ -1106,7 +1106,7 @@ def handle_flash_navigation(call):
             c = conn.cursor()
 
             # إجمالي عدد البطاقات
-            c.execute("SELECT srt_content, summary FROM lessons WHERE lesson_id = ?", (lesson_id,))
+            c.execute("SELECT srt_content, summary FROM lessons WHERE id = ?", (lesson_id,))
             total = c.fetchone()[0]
 
             # جميع البطاقات المرتبة بالـ ID
