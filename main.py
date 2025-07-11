@@ -1067,6 +1067,7 @@ def handle_generate_flashcards(call):
 
     try:
         count = generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
+        quiz_count = generate_quizzes_for_lesson(lesson_id)
         bot.send_message(call.message.chat.id, f"✅ تم إنشاء {count} بطاقة للدرس.")
     except Exception as e:
         return bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
