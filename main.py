@@ -760,12 +760,10 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
                 ))
             conn.commit()
         print(f"✅ تم إنشاء {len(flashcards)} بطاقة للدرس {lesson_id}")
+        print("📦 تأكيد البطاقات المخزنة:")
         with sqlite3.connect(DB_FILE) as conn:
-            cnt = conn.execute(
-                "SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?",
-                (lesson_id,)
-            ).fetchone()[0]
-        bot.send_message(call.message.chat.id, f"✅ تم إنشاء {cnt} بطاقة للدرس.")
+            for row in conn.execute("SELECT lesson_id, line FROM flashcards"):
+                print(row)
     except Exception as e:
         print(f"❌ خطأ في توليد البطاقات:\n{e}")
 
@@ -953,55 +951,37 @@ def handle_summary(msg):
     except Exception as e:
         bot.send_message(msg.chat.id, f"❌ حدث خطأ أثناء حفظ البيانات:\n{e}")
 
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("generate_flashcards_"))
 def handle_generate_flashcards(call):
     bot.answer_callback_query(call.id)
-
     lesson_id = call.data.split("_")[-1]
 
+    # جلب البيانات من الدرس
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT srt_content, summary, video_id FROM lessons WHERE id = ?", (lesson_id,))
+        row = c.fetchone()
+
+    if not row:
+        return bot.send_message(call.message.chat.id, "❌ لم يتم العثور على محتوى هذا الدرس.")
+
+    srt_content, summary, video_id = row
+    bot.send_message(call.message.chat.id, "⚙️ جاري توليد البطاقات، يرجى الانتظار...")
+
     try:
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            # استخرج srt_content و summary و video_id من قاعدة البيانات
-            c.execute("SELECT srt_content, summary, video_id FROM lessons WHERE id = ?", (lesson_id,))
-            result = c.fetchone()
-
-        if not result:
-            bot.send_message(call.message.chat.id, "❌ لم يتم العثور على محتوى هذا الدرس.")
-            return
-
-        srt_content, summary, video_id = result  # ✅ الآن video_id موجود
-        bot.send_message(call.message.chat.id, "⚙️ جاري توليد البطاقات، يرجى الانتظار...")
-
-        generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
-
-        bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
-        # بعد نجاح إنشاء البطاقات:
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("✅ نعم", callback_data=f"yes_Noto_{lesson_id}"),
-            InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
-        )
-
-        bot.send_message(
-            call.message.chat.id,
-            "📣 هل تريد إرسال إشعار إلى القناة؟",
-            reply_markup=markup
-                            )
+        count = generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
+        bot.send_message(call.message.chat.id, f"✅ تم إنشاء {count} بطاقة للدرس.")
     except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
+        return bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
 
-    finally:
-        user_states.pop(call.from_user.id, None)
-        temp_data.clear()
-        try:
-            if os.path.exists(SRT_PATH):
-                os.remove(SRT_PATH)
-            if os.path.exists(VIDEO_PATH):
-                os.remove(VIDEO_PATH)
-        except Exception as cleanup_error:
-            print(f"⚠️ خطأ أثناء حذف الملفات المؤقتة: {cleanup_error}")
-            
+    # ثم زر الإشعار
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("✅ نعم، أنشئ الإشعار", callback_data=f"yes_Noto_{lesson_id}"),
+        InlineKeyboardButton("❌ لا، شكراً", callback_data="cancel_Noto")
+    )
+    bot.send_message(call.message.chat.id, "📣 هل تريد إرسال إشعار إلى القناة؟", reply_markup=markup)
 
 
 bot_username = "AIChatGeniebot"
