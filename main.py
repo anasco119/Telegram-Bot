@@ -708,7 +708,7 @@ def process_text_for_quiz(message):
 
 
 
-def generate_flashcards_for_lesson(lesson_id, srt_content, summary):
+def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
     try:
         prompt = f"""
 أنت مساعد تعليمي ذكي. لديك تفريغ لحوار من مقطع فيديو (srt_content) وملخص عن سياق الفيديو (summary).
@@ -967,7 +967,7 @@ def handle_generate_flashcards(call):
         srt_content, summary, video_id = result  # ✅ الآن video_id موجود
         bot.send_message(call.message.chat.id, "⚙️ جاري توليد البطاقات، يرجى الانتظار...")
 
-        generate_flashcards_for_lesson(video_id, srt_content, summary)
+        generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
 
         bot.send_message(call.message.chat.id, "✅ تم إنشاء بطاقات الدرس بنجاح.")
         # بعد نجاح إنشاء البطاقات:
