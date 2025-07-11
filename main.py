@@ -838,7 +838,8 @@ def generate_quizzes_for_lesson(lesson_id):
 
 """ 
 
-    ai_response = generate_gemini_response(prompt) raw_json = extract_json_from_string(ai_response)
+    ai_response = generate_gemini_response(prompt)
+    raw_json = extract_json_from_string(ai_response)
 
     try:
         quizzes = json.loads(raw_json)
