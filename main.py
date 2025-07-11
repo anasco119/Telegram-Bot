@@ -1072,88 +1072,126 @@ def handle_cancel_noto(call):
 def show_flashcards(chat_id, lesson_id):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT id, line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ? ORDER BY id LIMIT 1", (lesson_id,))
-        card = c.fetchone()
+        c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
+        lesson = c.fetchone()
         c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
         total = c.fetchone()[0]
 
-    if card:
-        card_id, line, explanation, vocab_notes = card
-        text = (
-            f"📚 بطاقة 1 من {total}\n\n"
-            f"💬 {line}\n\n"
-            f"🧠 {explanation}\n\n"
-            f"📌 *ملاحظات لغوية:*\n{vocab_notes}\n\n"
-            f"— البطاقات التعليمية من @EnglishConvs"
-        )
+    if not lesson or total == 0:
+        return bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس بعد.")
 
-        markup = InlineKeyboardMarkup()
-        if total > 1:
-            markup.add(InlineKeyboardButton("➡️ التالي", callback_data=f"flash_next_{lesson_id}_{card_id}"))
+    lesson_title = lesson[0]
 
-        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
-    else:
-        bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس بعد.")
+    text = f"""📘 *بطاقات تعليمية للدرس: {lesson_title}*
+
+📽️ *عنوان الفيديو:* {lesson_title}
+🎯 *الهدف:* تحسين مهارات الفهم والمفردات من خلال بطاقات مبنية على الحوار.
+✔️ *نصيحة:* شغّل الفيديو في الوضع المصغّر أثناء استعراض البطاقات لتستفيد أكثر.
+📝 *عدد البطاقات:* {total}
+
+اضغط على "ابدأ" للانتقال إلى البطاقات التعليمية 👇
+"""
+
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("🚀 ابدأ", callback_data=f"flash_start_{lesson_id}")
+    )
+
+    bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("flash_"))
 def handle_flash_navigation(call):
     bot.answer_callback_query(call.id)
-
     try:
-        parts = call.data.split("_")  # مثال: flash_next_<lesson_id>_<card_id>
-        direction = parts[1]          # "next" أو "prev"
+        parts = call.data.split("_")
+        action = parts[1]  # start / next / prev / restart / end
         lesson_id = parts[2]
-        current_card_id = int(parts[3])
+        current_card_id = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else None
 
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
+            # جميع البطاقات المرتبة
+            c.execute("SELECT id, line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
+            all_cards = c.fetchall()
+            total = len(all_cards)
 
-            # جلب جميع IDs للبطاقات الخاصة بالدرس بترتيبها
-            c.execute("SELECT id FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
-            all_ids = [row[0] for row in c.fetchall()]
-            total = len(all_ids)  # ✅ العدد الكلي كـ int
+        if total == 0:
+            return bot.send_message(call.message.chat.id, "❌ لا توجد بطاقات لهذا الدرس.")
 
-        if current_card_id in all_ids:
-            index = all_ids.index(current_card_id)
-            if direction == "next" and index < total - 1:
+        if action == "start":
+            index = 0
+        elif action in ("next", "prev"):
+            ids = [card[0] for card in all_cards]
+            index = ids.index(current_card_id)
+            if action == "next" and index < total - 1:
                 index += 1
-            elif direction == "prev" and index > 0:
+            elif action == "prev" and index > 0:
                 index -= 1
+        elif action == "restart":
+            index = 0
+        elif action == "end":
+            index = total  # بطاقة النهاية
         else:
-            index = 0  # fallback: أول بطاقة
+            return
 
-        next_card_id = all_ids[index]
+        if index == total:
+            # 🎯 بطاقة النهاية
+            text = f"""🏁 *انتهيت من مراجعة البطاقات!*
 
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            c.execute("SELECT line, explanation FROM flashcards WHERE id = ?", (next_card_id,))
-            row = c.fetchone()
+🧠 *ملخص الدرس:* (تمت مراجعته)
 
-        if row:
-            line, explanation = row
-            text = f"📚 بطاقة {index + 1} من {total}\n\n💬 {line}\n\n🧠 {explanation}\n\n— البطاقات التعليمية من @EnglishConvs"
+🎯 استعد لاختبار نفسك أو راجع البطاقات مجددًا.
 
-            # أزرار تنقّل
+— @EnglishConvs"""
+
             markup = InlineKeyboardMarkup()
-            if index > 0:
-                markup.add(InlineKeyboardButton("⬅️ السابق", callback_data=f"flash_prev_{lesson_id}_{next_card_id}"))
-            if index < total - 1:
-                markup.add(InlineKeyboardButton("➡️ التالي", callback_data=f"flash_next_{lesson_id}_{next_card_id}"))
+            markup.add(
+                InlineKeyboardButton("🔁 إعادة", callback_data=f"flash_restart_{lesson_id}"),
+                InlineKeyboardButton("📝 اختبار نفسك", url=f"https://t.me/{bot_username}?start=quiz_{lesson_id}")
+            )
 
-            # تعديل الرسالة الحالية
-            bot.edit_message_text(
+            return bot.edit_message_text(
                 text,
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
+                parse_mode="Markdown",
                 reply_markup=markup
             )
+
+        # بطاقة عادية
+        card_id, line, explanation, vocab_notes = all_cards[index]
+        card_number = index + 1
+        text = f"""📚 بطاقة {card_number} من {total}
+
+💬 {line}
+
+🧠 {explanation}
+📌 {vocab_notes}
+
+— @EnglishConvs"""
+
+        # أزرار التنقل
+        markup = InlineKeyboardMarkup()
+        buttons = []
+        if index > 0:
+            buttons.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"flash_prev_{lesson_id}_{card_id}"))
+        if index < total - 1:
+            buttons.append(InlineKeyboardButton("➡️ التالي", callback_data=f"flash_next_{lesson_id}_{card_id}"))
         else:
-            bot.send_message(call.message.chat.id, "❌ لم يتم العثور على هذه البطاقة.")
+            buttons.append(InlineKeyboardButton("🏁 إنهاء", callback_data=f"flash_end_{lesson_id}"))
+
+        markup.row(*buttons)  # سطر واحد بدل سطرين
+
+        bot.edit_message_text(
+            text,
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
 
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ حدث خطأ:\n{e}")
-
-
 
 
 # ----------------------------------------
