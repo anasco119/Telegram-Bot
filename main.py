@@ -565,45 +565,43 @@ def add_promo_to_raw_srt(srt_text: str, promo: str):
     return promo_block + '\n\n'.join(renumbered_blocks)
 
 
+
 def extract_json_from_string(text: str) -> str:
     """
-    Extracts a JSON string from a text that might contain markdown code blocks or other text.
+    تحاول استخراج محتوى JSON من النص، سواء داخل ```json أو ضمن الأقواس مباشرة.
+    تتحقق من صحة JSON وتعيده إذا كان صالحًا.
     """
-    # البحث عن بلوك JSON داخل ```json ... ```
-    match = re.search(r'```json\s*([\s\S]*?)\s*```', text)
+    # 1. حاول استخراج من ```json ... ```
+    match = re.search(r'```json\s*([\s\S]+?)\s*```', text)
     if match:
-        return match.group(1).strip()
-
-    # إذا لم يجد بلوك، ابحث عن أول '{' أو '[' وآخر '}' أو ']'
-    start = -1
-    end = -1
+        candidate = match.group(1).strip()
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            print("⚠️ JSON داخل الكتلة غير صالح.")
     
-    # البحث عن بداية القائمة أو الكائن
-    first_brace = text.find('{')
-    first_bracket = text.find('[')
-    
-    if first_brace == -1:
-        start = first_bracket
-    elif first_bracket == -1:
-        start = first_brace
-    else:
-        start = min(first_brace, first_bracket)
+    # 2. إذا لم يكن هناك كتلة json صالحة، حاول استخراج من أول [ أو { إلى آخر ] أو }
+    start = min(
+        (i for i in [text.find('['), text.find('{')] if i != -1),
+        default=-1
+    )
+    end = max(
+        (i for i in [text.rfind(']'), text.rfind('}')] if i != -1),
+        default=-1
+    )
 
-    # إذا لم يتم العثور على بداية، أرجع النص الأصلي
-    if start == -1:
-        return text
+    if start != -1 and end != -1 and end > start:
+        candidate = text[start:end+1].strip()
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            print("⚠️ JSON داخل الأقواس غير صالح.")
 
-    # البحث عن نهاية القائمة أو الكائن
-    last_brace = text.rfind('}')
-    last_bracket = text.rfind(']')
-    end = max(last_brace, last_bracket)
-
-    # إذا تم العثور على بداية ونهاية، أرجع ما بينهما
-    if end > start:
-        return text[start:end+1].strip()
-        
-    # كخيار أخير، أرجع النص كما هو
-    return text
+    # 3. لا يوجد JSON صالح
+    print("❌ لم يتم العثور على JSON صالح في الرد.")
+    return "[]"
 
 def create_quiz(channel_id, question, options, correct_option_id):
     try:
@@ -706,13 +704,8 @@ def process_text_for_quiz(message):
         logging.error(f"Error in process_text_for_quiz: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 
-
-
 def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
     try:
-        print(f"🚨 دخلت الدالة generate_flashcards_for_lesson | lesson_id: {lesson_id}")
-        print(f"🔎 بدء توليد البطاقات للدرس lesson_id = {lesson_id}")
-
         prompt = f"""
 أنت مساعد تعليمي ذكي. لديك تفريغ لحوار من مقطع فيديو (srt_content) وملخص عن سياق الفيديو (summary).
 مهمتك هي إنشاء بطاقات تعليمية تفاعلية.
@@ -745,37 +738,21 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
 
 """
 
-        ai_response = generate_gemini_response(prompt)  # نموذج الذكاء الاصطناعي
-        print("🧠 رد الذكاء الاصطناعي:")
-        print(ai_response)
+        ai_response = generate_gemini_response(prompt)
+        print("🔁 رد الذكاء الاصطناعي:\n", ai_response)
 
         raw_json = extract_json_from_string(ai_response)
-
-        if not raw_json:
-            print("❌ لم يتم استخراج JSON من الرد.")
-            return
+        print("📦 JSON المستخرج:\n", raw_json)
 
         flashcards = json.loads(raw_json)
 
-        if not isinstance(flashcards, list) or not flashcards:
-            print("❌ تنسيق JSON غير صالح أو فارغ.")
-            return
-
-        print(f"📦 عدد البطاقات المستخرجة: {len(flashcards)}")
-
-        for idx, card in enumerate(flashcards):
-            print(f"\n🔹 بطاقة {idx+1}")
-            print("line:", card.get("line"))
-            print("explanation:", card.get("explanation"))
-            print("vocab_notes:", card.get("vocab_notes"))
+        if not flashcards:
+            print("⚠️ لم يتم توليد أي بطاقات.")
+            return 0
 
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             for card in flashcards:
-                # تحقق من وجود الحقول الأساسية
-                if not all(k in card for k in ("line", "explanation", "vocab_notes")):
-                    print("⚠️ بطاقة تحتوي على حقول ناقصة، سيتم تجاهلها.")
-                    continue
                 c.execute('''
                     INSERT INTO flashcards (lesson_id, line, explanation, vocab_notes)
                     VALUES (?, ?, ?, ?)
@@ -787,20 +764,14 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
                 ))
             conn.commit()
 
-        print(f"✅ تم حفظ {len(flashcards)} بطاقة في قاعدة البيانات للدرس {lesson_id}")
-
-        # عرض ما تم حفظه
-        print("📥 البطاقات الموجودة في قاعدة البيانات الآن:")
-        with sqlite3.connect(DB_FILE) as conn:
-            for row in conn.execute("SELECT lesson_id, line FROM flashcards WHERE lesson_id = ?", (lesson_id,)):
-                print(row)
-
+        print(f"✅ تم إنشاء {len(flashcards)} بطاقة للدرس {lesson_id}")
         return len(flashcards)
 
     except Exception as e:
         print(f"❌ خطأ في توليد أو حفظ البطاقات:\n{e}")
         return 0
-    
+
+
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
 
