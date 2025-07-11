@@ -704,6 +704,7 @@ def process_text_for_quiz(message):
         logging.error(f"Error in process_text_for_quiz: {e}")
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 
+
 def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
     try:
         prompt = f"""
@@ -739,16 +740,13 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
 """
 
         ai_response = generate_gemini_response(prompt)
-        print("🔁 رد الذكاء الاصطناعي:\n", ai_response)
+        print("📤 رد الذكاء الاصطناعي:\n", ai_response)
 
         raw_json = extract_json_from_string(ai_response)
-        print("📦 JSON المستخرج:\n", raw_json)
+        print("📦 النص المستخرج كـ JSON:\n", raw_json)
 
         flashcards = json.loads(raw_json)
-
-        if not flashcards:
-            print("⚠️ لم يتم توليد أي بطاقات.")
-            return 0
+        print("🔢 عدد العناصر المستخرجة:", len(flashcards))
 
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
@@ -764,13 +762,11 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
                 ))
             conn.commit()
 
-        print(f"✅ تم إنشاء {len(flashcards)} بطاقة للدرس {lesson_id}")
         return len(flashcards)
 
     except Exception as e:
         print(f"❌ خطأ في توليد أو حفظ البطاقات:\n{e}")
         return 0
-
 
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
