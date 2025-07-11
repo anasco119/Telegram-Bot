@@ -795,8 +795,12 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
             for row in conn.execute("SELECT lesson_id, line FROM flashcards WHERE lesson_id = ?", (lesson_id,)):
                 print(row)
 
+        return len(flashcards)
+
     except Exception as e:
         print(f"❌ خطأ في توليد أو حفظ البطاقات:\n{e}")
+        return 0
+    
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
 
