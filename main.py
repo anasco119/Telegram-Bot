@@ -710,6 +710,8 @@ def process_text_for_quiz(message):
 
 def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
     try:
+        print(f"🔎 بدء توليد البطاقات للدرس lesson_id = {lesson_id}")
+
         prompt = f"""
 أنت مساعد تعليمي ذكي. لديك تفريغ لحوار من مقطع فيديو (srt_content) وملخص عن سياق الفيديو (summary).
 مهمتك هي إنشاء بطاقات تعليمية تفاعلية.
@@ -741,14 +743,38 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
 لا تكرر الشرح كثيرًا، واجعله مشوقًا ومفيدًا
 
 """
-        # استخدم نموذج AI الخاص بك هنا
-        ai_response = generate_gemini_response(prompt)  # استبدلها بما يناسبك
+
+        ai_response = generate_gemini_response(prompt)  # نموذج الذكاء الاصطناعي
+        print("🧠 رد الذكاء الاصطناعي:")
+        print(ai_response)
+
         raw_json = extract_json_from_string(ai_response)
+
+        if not raw_json:
+            print("❌ لم يتم استخراج JSON من الرد.")
+            return
+
         flashcards = json.loads(raw_json)
+
+        if not isinstance(flashcards, list) or not flashcards:
+            print("❌ تنسيق JSON غير صالح أو فارغ.")
+            return
+
+        print(f"📦 عدد البطاقات المستخرجة: {len(flashcards)}")
+
+        for idx, card in enumerate(flashcards):
+            print(f"\n🔹 بطاقة {idx+1}")
+            print("line:", card.get("line"))
+            print("explanation:", card.get("explanation"))
+            print("vocab_notes:", card.get("vocab_notes"))
 
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             for card in flashcards:
+                # تحقق من وجود الحقول الأساسية
+                if not all(k in card for k in ("line", "explanation", "vocab_notes")):
+                    print("⚠️ بطاقة تحتوي على حقول ناقصة، سيتم تجاهلها.")
+                    continue
                 c.execute('''
                     INSERT INTO flashcards (lesson_id, line, explanation, vocab_notes)
                     VALUES (?, ?, ?, ?)
@@ -759,14 +785,17 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
                     card["vocab_notes"]
                 ))
             conn.commit()
-        print(f"✅ تم إنشاء {len(flashcards)} بطاقة للدرس {lesson_id}")
-        print("📦 تأكيد البطاقات المخزنة:")
-        with sqlite3.connect(DB_FILE) as conn:
-            for row in conn.execute("SELECT lesson_id, line FROM flashcards"):
-                print(row)
-    except Exception as e:
-        print(f"❌ خطأ في توليد البطاقات:\n{e}")
 
+        print(f"✅ تم حفظ {len(flashcards)} بطاقة في قاعدة البيانات للدرس {lesson_id}")
+
+        # عرض ما تم حفظه
+        print("📥 البطاقات الموجودة في قاعدة البيانات الآن:")
+        with sqlite3.connect(DB_FILE) as conn:
+            for row in conn.execute("SELECT lesson_id, line FROM flashcards WHERE lesson_id = ?", (lesson_id,)):
+                print(row)
+
+    except Exception as e:
+        print(f"❌ خطأ في توليد أو حفظ البطاقات:\n{e}")
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
 
