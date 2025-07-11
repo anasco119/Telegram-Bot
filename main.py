@@ -792,7 +792,11 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
         return 0
 
 
+
+
 def generate_quizzes_for_lesson(lesson_id):
+    
+
     # استخراج البطاقات من قاعدة البيانات
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -803,7 +807,7 @@ def generate_quizzes_for_lesson(lesson_id):
         print("❌ لا توجد بطاقات تعليمية.")
         return 0
 
-    # توليد الأسئلة باستخدام النموذج
+    # توليد البرومبت مع تصحيح تنسيق JSON
     prompt = f"""
 أنت مساعد تعليمي ذكي. مهمتك توليد 3 اختبارات قصيرة (Quiz) بناءً على هذه البطاقات التعليمية.
 
@@ -813,36 +817,31 @@ def generate_quizzes_for_lesson(lesson_id):
 - "answer": الخيار الصحيح
 
 📘 البيانات:
-```json
 {json.dumps(flashcards, ensure_ascii=False, indent=2)}
-📌  مثال على إخراج json المطلوب
-إتبع هذا النسق
 
+📌 المطلوب: أرسل فقط قائمة تحتوي على 3 مجموعات من الأسئلة، كل مجموعة عبارة عن قائمة أسئلتها الخاصة. ⚠️ لا تدمج كل الأسئلة في قائمة واحدة، بل اجعل الشكل النهائي هكذا:
+
+[
   [
     {{
       "question": "ما معنى I can't believe this?",
       "options": ["لا أصدق ذلك", "أريد ذلك", "هل تظن ذلك؟", "لن يحدث"],
       "answer": "لا أصدق ذلك"
     }},
-    {{
-      "question": "ما ترجمة كلمة 'apple'؟",
-      "options": ["تفاحة", "موزة", "برتقالة", "فراولة"],
-      "answer": "تفاحة"
-    }},
-    {{
-      "question": "ما عكس كلمة 'happy'؟",
-      "options": ["حزين", "غاضب", "مرهق", "جائع"],
-      "answer": "حزين"
-    }}
- ]
+    // المزيد من الأسئلة...
+  ],
+  // اختبار ثاني...
+]"""
 
-""" 
-
+    # توليد الرد
     ai_response = generate_gemini_response(prompt)
     raw_json = extract_json_from_string(ai_response)
 
     try:
         quizzes = json.loads(raw_json)
+        if not isinstance(quizzes, list) or not all(isinstance(q, list) for q in quizzes):
+            print("❌ تنسيق JSON غير صالح (يجب أن يكون قائمة من القوائم).")
+            return 0
     except Exception as e:
         print(f"❌ فشل في قراءة JSON:\n{e}")
         return 0
@@ -852,17 +851,24 @@ def generate_quizzes_for_lesson(lesson_id):
         c = conn.cursor()
         for quiz_number, quiz in enumerate(quizzes, start=1):
             for q in quiz:
-                c.execute("""
-                    INSERT INTO quizzes (lesson_id, quiz_number, question, options, answer)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    lesson_id,
-                    quiz_number,
-                    q["question"],
-                    json.dumps(q["options"], ensure_ascii=False),
-                    q["answer"]
-                ))
-            conn.commit()
+                if not isinstance(q, dict):
+                    print(f"⚠️ عنصر غير صالح (ليس dict): {q}")
+                    continue
+                try:
+                    c.execute("""
+                        INSERT INTO quizzes (lesson_id, quiz_number, question, options, answer)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (
+                        lesson_id,
+                        quiz_number,
+                        q["question"],
+                        json.dumps(q["options"], ensure_ascii=False),
+                        q["answer"]
+                    ))
+                except Exception as insert_err:
+                    print(f"❌ خطأ أثناء حفظ سؤال:\n{insert_err}")
+        conn.commit()
+
     return sum(len(qz) for qz in quizzes)
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
