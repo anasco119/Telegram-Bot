@@ -1491,7 +1491,7 @@ def handle_start(message):
 
         elif payload.startswith("quiz_"):
             lesson_id = payload.replace("quiz_", "")
-            start_quiz(message.chat.id, lesson_id)
+            start_quiz(message.chat.id, lesson_id, bot)  # مرر bot هنا
 
         else:
             bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {payload}")
