@@ -96,8 +96,19 @@ def init_db():
                 explanation TEXT,
                 vocab_notes TEXT
             )''')
-
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS quizzes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id TEXT,
+                quiz_number INTEGER,
+                question TEXT,
+                options TEXT,
+                answer TEXT
+            )
+            """)
             conn.commit()
+
+            
             logging.info(f"Database created or updated at: {os.path.abspath(DB_FILE)}")
     except Exception as e:
         logging.error(f"Database initialization error: {e}")
@@ -780,6 +791,78 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
         print(f"❌ خطأ في توليد أو حفظ البطاقات:\n{e}")
         return 0
 
+
+def generate_quizzes_for_lesson(lesson_id):
+    # استخراج البطاقات من قاعدة البيانات
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+        flashcards = [{"line": row[0], "explanation": row[1], "vocab_notes": row[2]} for row in c.fetchall()]
+
+    if not flashcards:
+        print("❌ لا توجد بطاقات تعليمية.")
+        return 0
+
+    # توليد الأسئلة باستخدام النموذج
+    prompt = f"""
+أنت مساعد تعليمي ذكي. مهمتك توليد 3 اختبارات قصيرة (Quiz) بناءً على هذه البطاقات التعليمية.
+
+كل اختبار يحتوي على 3 إلى 5 أسئلة اختيار من متعدد. كل سؤال يتضمن:
+- "question": صيغة السؤال بالعربية (مثلاً: ما معنى "I can't believe this"?)
+- "options": قائمة من 4 خيارات
+- "answer": الخيار الصحيح
+
+📘 البيانات:
+```json
+{json.dumps(flashcards, ensure_ascii=False, indent=2)}
+📌  مثال على إخراج json المطلوب
+إتبع هذا النسق
+
+  [
+    {{
+      "question": "ما معنى I can't believe this?",
+      "options": ["لا أصدق ذلك", "أريد ذلك", "هل تظن ذلك؟", "لن يحدث"],
+      "answer": "لا أصدق ذلك"
+    }},
+    {{
+      "question": "ما ترجمة كلمة 'apple'؟",
+      "options": ["تفاحة", "موزة", "برتقالة", "فراولة"],
+      "answer": "تفاحة"
+    }},
+    {{
+      "question": "ما عكس كلمة 'happy'؟",
+      "options": ["حزين", "غاضب", "مرهق", "جائع"],
+      "answer": "حزين"
+    }}
+ ]
+
+""" 
+
+    ai_response = generate_gemini_response(prompt) raw_json = extract_json_from_string(ai_response)
+
+    try:
+        quizzes = json.loads(raw_json)
+    except Exception as e:
+        print(f"❌ فشل في قراءة JSON:\n{e}")
+        return 0
+
+    # تخزين الأسئلة
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        for quiz_number, quiz in enumerate(quizzes, start=1):
+            for q in quiz:
+                c.execute("""
+                    INSERT INTO quizzes (lesson_id, quiz_number, question, options, answer)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    lesson_id,
+                    quiz_number,
+                    q["question"],
+                    json.dumps(q["options"], ensure_ascii=False),
+                    q["answer"]
+                ))
+            conn.commit()
+    return sum(len(qz) for qz in quizzes)
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
 
@@ -1085,9 +1168,13 @@ def show_flashcards(chat_id, lesson_id):
     text = f"""📘 *بطاقات تعليمية للدرس: {lesson_title}*
 
 📽️ *عنوان الفيديو:* {lesson_title}
+
 🎯 *الهدف:* تحسين مهارات الفهم والمفردات من خلال بطاقات مبنية على الحوار.
+
 ✔️ *نصيحة:* شغّل الفيديو في الوضع المصغّر أثناء استعراض البطاقات لتستفيد أكثر.
+
 📝 *عدد البطاقات:* {total}
+
 
 اضغط على "ابدأ" للانتقال إلى البطاقات التعليمية 👇
 """
@@ -1138,7 +1225,11 @@ def handle_flash_navigation(call):
             # 🎯 بطاقة النهاية
             text = f"""🏁 *انتهيت من مراجعة البطاقات!*
 
+
+
 🧠 *ملخص الدرس:* (تمت مراجعته)
+
+
 
 🎯 استعد لاختبار نفسك أو راجع البطاقات مجددًا.
 
@@ -1165,7 +1256,11 @@ def handle_flash_navigation(call):
 
 💬 {line}
 
+
+
 🧠 {explanation}
+
+
 📌 {vocab_notes}
 
 — @EnglishConvs"""
@@ -1192,6 +1287,136 @@ def handle_flash_navigation(call):
 
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ حدث خطأ:\n{e}")
+
+
+
+# تخزين حالة الاختبار لكل مستخدم
+user_quiz_state = {}
+
+def start_quiz(chat_id, lesson_id, bot):
+    """بدء اختبار معين وإرسال أول سؤال"""
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT quiz_number, question, options, answer 
+            FROM quizzes 
+            WHERE lesson_id = ? 
+            ORDER BY quiz_number
+        """, (lesson_id,))
+        quizzes = c.fetchall()
+
+    if not quizzes:
+        bot.send_message(chat_id, "❌ لا توجد اختبارات محفوظة لهذا الدرس بعد.")
+        return
+
+    # تحويل النتائج إلى هيكل مناسب
+    quiz_data = []
+    current_quiz = []
+    current_quiz_number = None
+
+    for quiz in quizzes:
+        quiz_number, question, options, answer = quiz
+        options = json.loads(options)
+        
+        if current_quiz_number != quiz_number:
+            if current_quiz:
+                quiz_data.append(current_quiz)
+            current_quiz = []
+            current_quiz_number = quiz_number
+        
+        current_quiz.append({
+            "question": question,
+            "options": options,
+            "answer": answer
+        })
+    
+    if current_quiz:
+        quiz_data.append(current_quiz)
+
+    # حفظ حالة الاختبار للمستخدم
+    user_quiz_state[chat_id] = {
+        'lesson_id': lesson_id,
+        'quizzes': quiz_data,
+        'current_quiz': 0,
+        'current_question': 0,
+        'score': 0
+    }
+
+    # إرسال أول سؤال
+    send_next_question(chat_id, bot)
+
+def send_next_question(chat_id, bot):
+    """إرسال السؤال التالي في الاختبار"""
+    if chat_id not in user_quiz_state:
+        return
+
+    state = user_quiz_state[chat_id]
+    quizzes = state['quizzes']
+    quiz_idx = state['current_quiz']
+    question_idx = state['current_question']
+
+    if quiz_idx >= len(quizzes):
+        # انتهاء جميع الاختبارات
+        bot.send_message(
+            chat_id,
+            f"🏁 انتهت جميع الاختبارات! النتيجة النهائية: {state['score']}/{sum(len(q) for q in quizzes)}"
+        )
+        del user_quiz_state[chat_id]
+        return
+
+    current_quiz = quizzes[quiz_idx]
+    
+    if question_idx >= len(current_quiz):
+        # الانتقال إلى الاختبار التالي
+        state['current_quiz'] += 1
+        state['current_question'] = 0
+        send_next_question(chat_id, bot)
+        return
+
+    question_data = current_quiz[question_idx]
+    
+    # إرسال السؤال الحالي
+    poll = bot.send_poll(
+        chat_id=chat_id,
+        question=question_data["question"],
+        options=question_data["options"],
+        is_anonymous=False,
+        type='quiz',
+        correct_option_id=question_data["options"].index(question_data["answer"])
+    )
+
+    # حفظ معرف الرسالة لتتبع الإجابة
+    state['last_poll_message_id'] = poll.message_id
+
+@bot.poll_answer_handler()
+def handle_poll_answer(poll_answer):
+    """معالجة إجابة المستخدم على السؤال"""
+    chat_id = poll_answer.user.id
+    
+    if chat_id not in user_quiz_state:
+        return
+
+    state = user_quiz_state[chat_id]
+    
+    # الحصول على تفاصيل السؤال الحالي
+    current_quiz = state['quizzes'][state['current_quiz']]
+    current_question = current_quiz[state['current_question']]
+    
+    # التحقق من الإجابة
+    correct_option = current_question["options"].index(current_question["answer"])
+    if poll_answer.option_ids and poll_answer.option_ids[0] == correct_option:
+        state['score'] += 1
+        feedback = "✅ إجابة صحيحة!"
+    else:
+        feedback = f"❌ إجابة خاطئة! الإجابة الصحيحة هي: {current_question['answer']}"
+    
+    # إرسال التغذية الراجعة
+    bot.send_message(chat_id, feedback)
+    
+    # الانتقال إلى السؤال التالي
+    state['current_question'] += 1
+    send_next_question(chat_id, bot)
+
 
 
 # ----------------------------------------
