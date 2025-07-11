@@ -760,9 +760,15 @@ def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
                 ))
             conn.commit()
         print(f"✅ تم إنشاء {len(flashcards)} بطاقة للدرس {lesson_id}")
+        with sqlite3.connect(DB_FILE) as conn:
+            cnt = conn.execute(
+                "SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?",
+                (lesson_id,)
+            ).fetchone()[0]
+        bot.send_message(call.message.chat.id, f"✅ تم إنشاء {cnt} بطاقة للدرس.")
     except Exception as e:
         print(f"❌ خطأ في توليد البطاقات:\n{e}")
-        
+
 # -------------------------------------------------------------------------------------- message handler -------------
 #-----------------------------------------
 
