@@ -1068,27 +1068,32 @@ def handle_cancel_noto(call):
 # ----------------------------------------
 # ------------  start Cards ---------------------
 #---------------------------------------
+
 def show_flashcards(chat_id, lesson_id):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT id, line, explanation FROM flashcards WHERE lesson_id = ? ORDER BY id LIMIT 1", (lesson_id,))
+        c.execute("SELECT id, line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ? ORDER BY id LIMIT 1", (lesson_id,))
         card = c.fetchone()
         c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
         total = c.fetchone()[0]
 
     if card:
-        card_id, line, explanation = card
-        text = f"📚 بطاقة 1 من {total}\n\n💬 {line}\n\n🧠 {explanation}"
+        card_id, line, explanation, vocab_notes = card
+        text = (
+            f"📚 بطاقة 1 من {total}\n\n"
+            f"💬 {line}\n\n"
+            f"🧠 {explanation}\n\n"
+            f"📌 *ملاحظات لغوية:*\n{vocab_notes}\n\n"
+            f"— البطاقات التعليمية من @EnglishConvs"
+        )
 
         markup = InlineKeyboardMarkup()
         if total > 1:
             markup.add(InlineKeyboardButton("➡️ التالي", callback_data=f"flash_next_{lesson_id}_{card_id}"))
 
-        bot.send_message(chat_id, text, reply_markup=markup)
+        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
     else:
         bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس بعد.")
-
-
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("flash_"))
 def handle_flash_navigation(call):
