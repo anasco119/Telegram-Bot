@@ -1090,42 +1090,35 @@ def show_flashcards(chat_id, lesson_id):
 
 
 
-
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("flash_"))
 def handle_flash_navigation(call):
     bot.answer_callback_query(call.id)
 
     try:
-        parts = call.data.split("_")  # مثال: flash_next_123456_4
-        direction = parts[1]          # next أو prev
+        parts = call.data.split("_")  # مثال: flash_next_<lesson_id>_<card_id>
+        direction = parts[1]          # "next" أو "prev"
         lesson_id = parts[2]
         current_card_id = int(parts[3])
 
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
 
-            # إجمالي عدد البطاقات
-            c.execute("SELECT srt_content, summary FROM lessons WHERE id = ?", (lesson_id,))
-            total = c.fetchone()[0]
-
-            # جميع البطاقات المرتبة بالـ ID
-            c.execute("SELECT id, line, explanation FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
+            # جلب جميع IDs للبطاقات الخاصة بالدرس بترتيبها
+            c.execute("SELECT id FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
             all_ids = [row[0] for row in c.fetchall()]
+            total = len(all_ids)  # ✅ العدد الكلي كـ int
 
-        # معرفة رقم البطاقة الحالية داخل القائمة
         if current_card_id in all_ids:
             index = all_ids.index(current_card_id)
-            if direction == "next" and index < len(all_ids) - 1:
+            if direction == "next" and index < total - 1:
                 index += 1
             elif direction == "prev" and index > 0:
                 index -= 1
         else:
-            index = 0  # fallback في حال لم يجد id
+            index = 0  # fallback: أول بطاقة
 
         next_card_id = all_ids[index]
 
-        # جلب بيانات البطاقة الجديدة
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("SELECT line, explanation FROM flashcards WHERE id = ?", (next_card_id,))
@@ -1133,16 +1126,16 @@ def handle_flash_navigation(call):
 
         if row:
             line, explanation = row
-            text = f"📚 بطاقة {index + 1} من {total}\n\n💬 {line}\n\n🧠 {explanation}"
+            text = f"📚 بطاقة {index + 1} من {total}\n\n💬 {line}\n\n🧠 {explanation}\n\n— البطاقات التعليمية من @EnglishConvs"
 
-            # بناء الأزرار
+            # أزرار تنقّل
             markup = InlineKeyboardMarkup()
             if index > 0:
                 markup.add(InlineKeyboardButton("⬅️ السابق", callback_data=f"flash_prev_{lesson_id}_{next_card_id}"))
             if index < total - 1:
                 markup.add(InlineKeyboardButton("➡️ التالي", callback_data=f"flash_next_{lesson_id}_{next_card_id}"))
 
-            # تعديل نفس الرسالة
+            # تعديل الرسالة الحالية
             bot.edit_message_text(
                 text,
                 chat_id=call.message.chat.id,
@@ -1151,8 +1144,10 @@ def handle_flash_navigation(call):
             )
         else:
             bot.send_message(call.message.chat.id, "❌ لم يتم العثور على هذه البطاقة.")
+
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ حدث خطأ:\n{e}")
+
 
 
 
