@@ -710,6 +710,7 @@ def process_text_for_quiz(message):
 
 def generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary):
     try:
+        print(f"🚨 دخلت الدالة generate_flashcards_for_lesson | lesson_id: {lesson_id}")
         print(f"🔎 بدء توليد البطاقات للدرس lesson_id = {lesson_id}")
 
         prompt = f"""
