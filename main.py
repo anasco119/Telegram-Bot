@@ -81,12 +81,22 @@ def init_db():
             )''')
 
             # تعديل الجدول لإضافة عمود prompt_message_id إن لم يكن موجودًا
+            
+            # تعديل الجدول لإضافة الأعمدة الجديدة إن لم تكن موجودة
             try:
                 c.execute("ALTER TABLE lessons ADD COLUMN prompt_message_id INTEGER")
-                c.execute("ALTER TABLE lessons ADD COLUMN tag TEXT;
-                    ALTER TABLE lessons ADD COLUMN tag_reason TEXT;")
             except sqlite3.OperationalError:
                 pass  # العمود موجود بالفعل
+
+            try:
+                c.execute("ALTER TABLE lessons ADD COLUMN tag TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+            try:
+                c.execute("ALTER TABLE lessons ADD COLUMN tag_reason TEXT")
+            except sqlite3.OperationalError:
+                pass
 
             # إنشاء جدول البطاقات
             c.execute('''CREATE TABLE IF NOT EXISTS flashcards (
@@ -1445,6 +1455,39 @@ def handle_poll_answer(poll_answer):
     send_next_question(chat_id, bot)
 
 
+def generate_all_content_on_startup():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, video_id, srt_content, summary FROM lessons WHERE srt_content IS NOT NULL AND summary IS NOT NULL")
+        lessons = c.fetchall()
+
+    for lesson_id, video_id, srt_content, summary in lessons:
+        # تحقق إذا كانت البطاقات موجودة مسبقًا
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+            flashcard_count = c.fetchone()[0]
+
+        if flashcard_count == 0:
+            try:
+                print(f"🧠 توليد البطاقات للدرس {lesson_id}...")
+                generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
+            except Exception as e:
+                print(f"❌ فشل في توليد البطاقات للدرس {lesson_id}:\n{e}")
+                continue
+
+        # تحقق إذا كانت الاختبارات موجودة مسبقًا
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM quizzes WHERE lesson_id = ?", (lesson_id,))
+            quiz_count = c.fetchone()[0]
+
+        if quiz_count == 0:
+            try:
+                print(f"📝 توليد اختبارات للدرس {lesson_id}...")
+                generate_quizzes_for_lesson(lesson_id)
+            except Exception as e:
+                print(f"❌ فشل في توليد اختبارات للدرس {lesson_id}:\n{e}")
 
 # ----------------------------------------
 # ------- old code -------------------------
@@ -1558,5 +1601,6 @@ def set_webhook():
 
 if __name__ == "__main__":
     set_webhook()
+    generate_all_content_on_startup()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
