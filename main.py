@@ -1585,6 +1585,121 @@ def chat_with_gemini(message):
         bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
 
 
+
+
+
+
+def send_flashcards(bot, chat_id, lesson_id, mode='private'):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT line, explanation, vocab_notes 
+            FROM flashcards 
+            WHERE lesson_id = ?
+        """, (lesson_id,))
+        cards = c.fetchall()
+
+    if not cards:
+        bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس.")
+        return
+
+    for idx, (line, explanation, vocab) in enumerate(cards, start=1):
+        text = f"""📘 *البطاقة {idx}*
+✉️ *الجملة:* `{line}`
+
+📖 *الشرح:* {explanation}
+
+📌 *ملاحظات:* {vocab}"""
+        bot.send_message(chat_id, text, parse_mode='Markdown')
+
+    if mode == "channel":
+        bot.send_message(chat_id, f"✅ تم نشر بطاقات الدرس: {lesson_id}")
+
+
+
+def send_quiz(bot, chat_id, lesson_id, mode='private'):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT quiz_number, question, options, answer 
+            FROM quizzes 
+            WHERE lesson_id = ?
+            ORDER BY quiz_number
+        """, (lesson_id,))
+        quizzes = c.fetchall()
+
+    if not quizzes:
+        bot.send_message(chat_id, "❌ لا توجد اختبارات محفوظة لهذا الدرس.")
+        return
+
+    quiz_data = {}
+    for quiz_number, question, options, answer in quizzes:
+        options = json.loads(options)
+        correct_idx = options.index(answer)
+        if quiz_number not in quiz_data:
+            quiz_data[quiz_number] = []
+        quiz_data[quiz_number].append((question, options, correct_idx))
+
+    for quiz_number, questions in quiz_data.items():
+        for question, options, correct_idx in questions:
+            bot.send_poll(
+                chat_id,
+                question=question,
+                options=options,
+                type='quiz',
+                correct_option_id=correct_idx,
+                is_anonymous=False
+        )
+
+
+
+@bot.message_handler(commands=['lesson'])
+def handle_lesson_command(message):
+    parts = message.text.split()
+    if len(parts) < 2:
+        return bot.reply_to(message, "❗ استخدم الأمر بهذا الشكل:\n/lesson old_lesson_1")
+
+    lesson_id = parts[1]
+
+    # استخراج التاق من قاعدة البيانات
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT title, tag FROM lessons WHERE id = ?", (lesson_id,))
+        result = c.fetchone()
+
+    if not result:
+        return bot.send_message(message.chat.id, "❌ لم يتم العثور على هذا الدرس.")
+
+    title, tag = result
+
+    # إعداد الأزرار
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("🎓 عرض البطاقات", callback_data=f"view_flashcards_{lesson_id}"),
+        InlineKeyboardButton("📝 اختبر نفسك", callback_data=f"quiz_{lesson_id}")
+    )
+
+    # إرسال الرسالة مع عنوان الدرس والتصنيف
+    tag_text = f"\n🏷️ التصنيف: *{tag}*" if tag else ""
+    bot.send_message(
+        message.chat.id,
+        f"🎬 *{title}* ({lesson_id}){tag_text}\nاختر الإجراء:",
+        parse_mode="Markdown",
+        reply_markup=markup
+        )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("quiz_"))
+def handle_quiz_start(call):
+    lesson_id = call.data.replace("quiz_", "")
+    send_quiz(bot, call.message.chat.id, lesson_id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("view_flashcards_"))
+def handle_view_flashcards(call):
+    lesson_id = call.data.replace("view_flashcards_", "")
+    send_flashcards(bot, call.message.chat.id, lesson_id)
+
+
 # نقطة نهاية الويب هوك
 @app.route('/' + os.getenv('TELEGRAM_BOT_TOKEN'), methods=['POST'])
 def webhook():
