@@ -1083,6 +1083,64 @@ def handle_summary(msg):
     except Exception as e:
         bot.send_message(msg.chat.id, f"❌ حدث خطأ أثناء حفظ البيانات:\n{e}")
 
+# -------------------------
+# ------ Notifying users --------
+# --------------------------------
+
+
+@bot.message_handler(commands=['start_level'])
+def ask_user_level(message):
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("🟢 مبتدئ مريح", callback_data="set_level_مبتدئ مريح"),
+        InlineKeyboardButton("🔵 سهل", callback_data="set_level_سهل")
+    )
+    markup.row(
+        InlineKeyboardButton("🟠 متوسط", callback_data="set_level_متوسط"),
+        InlineKeyboardButton("🔴 سريع ومكثف", callback_data="set_level_سريع ومكثف")
+    )
+    bot.send_message(
+        message.chat.id,
+        "👋 حدد مستواك لتبدأ بتلقي الدروس المناسبة لك:",
+        reply_markup=markup
+    )
+
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("set_level_"))
+def handle_set_level(call):
+    tag = call.data.replace("set_level_", "")
+    user_id = call.from_user.id
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO users (user_id, level_tag) VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET level_tag=excluded.level_tag
+        """, (user_id, tag))
+        conn.commit()
+
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, f"✅ تم تعيين مستواك: {tag}\n📬 ستصلك الدروس المناسبة لهذا التصنيف.")
+
+
+def notify_users_by_tag(tag, lesson_title, lesson_id):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT user_id FROM users WHERE level_tag = ?", (tag,))
+        users = c.fetchall()
+
+    for user in users:
+        try:
+            bot.send_message(
+                user[0],
+                f"📢 درس جديد مناسب لمستواك ({tag}):\n🎬 {lesson_title}\n📚 استخدم /lesson {lesson_id} لعرضه"
+            )
+        except Exception as e:
+            print(f"⚠️ فشل إرسال الدرس للمستخدم {user[0]}: {e}")
+
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("generate_flashcards_"))
 def handle_generate_flashcards(call):
@@ -1104,6 +1162,7 @@ def handle_generate_flashcards(call):
     try:
         count = generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
         quiz_count = generate_quizzes_for_lesson(lesson_id)
+        noto = notify_users_by_tag(tag, title, lesson_number)
         bot.send_message(call.message.chat.id, f"✅ تم إنشاء {count} بطاقة للدرس.")
     except Exception as e:
         return bot.send_message(call.message.chat.id, f"❌ فشل في توليد البطاقات:\n{e}")
@@ -1537,55 +1596,6 @@ def handle_video_index(message):
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ خطأ أثناء عرض الفهرس:\n{e}")
         
-@bot.message_handler(commands=['start'])
-def handle_start(message):
-    args = message.text.split()
-
-    if len(args) > 1:
-        payload = args[1]  # استخدم اسم موحّد بدلاً من param
-
-        if payload == "index":
-            handle_video_index(message)
-
-        elif payload.startswith("lesson_"):
-            lesson_id = payload.replace("lesson_", "")
-            show_flashcards(message.chat.id, lesson_id)
-
-        elif payload.startswith("quiz_"):
-            lesson_id = payload.replace("quiz_", "")
-            start_quiz(message.chat.id, lesson_id, bot)  # مرر bot هنا
-
-        else:
-            bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {payload}")
-
-    else:
-        bot.send_message(message.chat.id, "👋 مرحبًا بك في البوت!")
-
-
-@bot.message_handler(func=lambda message: True)
-def chat_with_gemini(message):
-    try:
-        chat_id = str(message.chat.id)
-        message_text = message.text.lower()
-
-        if message.chat.type == "private":
-            if message.from_user.id == ALLOWED_USER_ID:
-                response_text = generate_gemini_response(message_text)
-                bot.send_message(message.chat.id, response_text)
-            else:
-                bot.send_message(message.chat.id, "هذا البوت مخصص للاستخدام في المجموعة فقط.")
-            return
-
-        if chat_id == GROUP_ID:  # التعامل مع الرسائل في المجموعة
-            if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
-                response_text = generate_gemini_response(message_text)
-                bot.send_message(message.chat.id, response_text)
-    except Exception as e:
-        logging.error(f"Error in chat_with_gemini: {e}")
-        bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
-
-
-
 
 
 
@@ -1747,7 +1757,60 @@ def handle_index_by_tag(message):
         reply += "\n"
 
     bot.send_message(message.chat.id, reply, parse_mode="Markdown")
-    
+
+
+
+
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    args = message.text.split()
+
+    if len(args) > 1:
+        payload = args[1]  # استخدم اسم موحّد بدلاً من param
+
+        if payload == "index":
+            handle_video_index(message)
+
+        elif payload.startswith("lesson_"):
+            lesson_id = payload.replace("lesson_", "")
+            show_flashcards(message.chat.id, lesson_id)
+
+        elif payload.startswith("quiz_"):
+            lesson_id = payload.replace("quiz_", "")
+            start_quiz(message.chat.id, lesson_id, bot)  # مرر bot هنا
+
+        else:
+            bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {payload}")
+
+    else:
+        bot.send_message(message.chat.id, "👋 مرحبًا بك في البوت!")
+
+@bot.message_handler(func=lambda message: True)
+def chat_with_gemini(message):
+    try:
+        chat_id = str(message.chat.id)
+        message_text = message.text.lower()
+
+        if message.chat.type == "private":
+            if message.from_user.id == ALLOWED_USER_ID:
+                response_text = generate_gemini_response(message_text)
+                bot.send_message(message.chat.id, response_text)
+            else:
+                bot.send_message(message.chat.id, "هذا البوت مخصص للاستخدام في المجموعة فقط.")
+            return
+
+        if chat_id == GROUP_ID:  # التعامل مع الرسائل في المجموعة
+            if any(keyword in message_text for keyword in ["genie", "@genie", "translate", "meaning", "grammar", "vocabulary", "explain"]):
+                response_text = generate_gemini_response(message_text)
+                bot.send_message(message.chat.id, response_text)
+    except Exception as e:
+        logging.error(f"Error in chat_with_gemini: {e}")
+        bot.send_message(ALLOWED_USER_ID, f"حدث خطأ: {e}")  # إرسال الخطأ إلى المسؤول
+        
+
+
+
+
 # نقطة نهاية الويب هوك
 @app.route('/' + os.getenv('TELEGRAM_BOT_TOKEN'), methods=['POST'])
 def webhook():
