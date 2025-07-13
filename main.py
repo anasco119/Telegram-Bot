@@ -118,7 +118,14 @@ def init_db():
                 answer TEXT
             )
             """)
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                level_tag TEXT
+            )
+            """)
             conn.commit()
+
 
             
             logging.info(f"Database created or updated at: {os.path.abspath(DB_FILE)}")
