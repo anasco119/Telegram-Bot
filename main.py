@@ -83,6 +83,8 @@ def init_db():
             # تعديل الجدول لإضافة عمود prompt_message_id إن لم يكن موجودًا
             try:
                 c.execute("ALTER TABLE lessons ADD COLUMN prompt_message_id INTEGER")
+                c.execute("ALTER TABLE lessons ADD COLUMN tag TEXT;
+                    ALTER TABLE lessons ADD COLUMN tag_reason TEXT;")
             except sqlite3.OperationalError:
                 pass  # العمود موجود بالفعل
 
@@ -114,18 +116,20 @@ def init_db():
         logging.error(f"Database initialization error: {e}")
 
 
+
 def insert_old_lessons_from_json(json_path):
     if not os.path.exists(json_path):
-        print(f"File {json_path} not found.")
+        print(f"❌ الملف غير موجود: {json_path}")
         return
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
+
+        # اختياري: تأكد من عدم التكرار
         c.execute("SELECT COUNT(*) FROM lessons WHERE lesson_number IS NOT NULL")
         count = c.fetchone()[0]
-
         if count > 0:
-            print("Lessons already imported. Skipping.")
+            print("ℹ️ الدروس تم استيرادها مسبقًا. تم الإلغاء.")
             return
 
         with open(json_path, "r", encoding="utf-8") as f:
@@ -133,14 +137,29 @@ def insert_old_lessons_from_json(json_path):
 
         for i, lesson in enumerate(lessons, start=1):
             lesson_id = f"old_lesson_{i}"
-            content = f"{lesson['title']}\n{lesson['link']}"
-            c.execute(
-                "INSERT INTO lessons (id, content, video_id, srt_content, summary, lesson_number, title, link, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (lesson_id, content, None, None, None, i, lesson.get('title'), lesson.get('link'), 'video')
-            )
-        conn.commit()
-        print(f"Imported {len(lessons)} lessons from JSON.")
+            content = f"{lesson.get('title', '')}\n{lesson.get('link', '')}"
 
+            c.execute("""
+                INSERT INTO lessons (
+                    id, content, video_id, srt_content, summary,
+                    lesson_number, title, link, type, tag, tag_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                lesson_id,
+                content,
+                None,  # video_id
+                lesson.get("srt_content"),   # ✅ مضاف حديثًا
+                lesson.get("summary"),       # ✅ مضاف حديثًا
+                i,
+                lesson.get("title"),
+                lesson.get("link"),
+                lesson.get("type", "video"),
+                lesson.get("tag"),
+                lesson.get("tag_reason")
+            ))
+
+        conn.commit()
+        print(f"✅ تم استيراد {len(lessons)} درس من ملف JSON.")
 
 
 
