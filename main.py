@@ -1652,25 +1652,27 @@ def send_quiz(bot, chat_id, lesson_id, mode='private'):
         )
 
 
-
 @bot.message_handler(commands=['lesson'])
 def handle_lesson_command(message):
     parts = message.text.split()
     if len(parts) < 2:
-        return bot.reply_to(message, "❗ استخدم الأمر بهذا الشكل:\n/lesson old_lesson_1")
+        return bot.reply_to(message, "❗ استخدم الأمر بهذا الشكل:\n/lesson 3")
 
-    lesson_id = parts[1]
+    try:
+        lesson_number = int(parts[1])
+    except ValueError:
+        return bot.reply_to(message, "❗ رقم الدرس غير صالح. استخدم رقمًا مثل:\n/lesson 2")
 
-    # استخراج التاق من قاعدة البيانات
+    # جلب بيانات الدرس من قاعدة البيانات
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT title, tag FROM lessons WHERE id = ?", (lesson_id,))
+        c.execute("SELECT id, title, tag FROM lessons WHERE lesson_number = ?", (lesson_number,))
         result = c.fetchone()
 
     if not result:
         return bot.send_message(message.chat.id, "❌ لم يتم العثور على هذا الدرس.")
 
-    title, tag = result
+    lesson_id, title, tag = result
 
     # إعداد الأزرار
     markup = InlineKeyboardMarkup()
@@ -1679,14 +1681,15 @@ def handle_lesson_command(message):
         InlineKeyboardButton("📝 اختبر نفسك", callback_data=f"quiz_{lesson_id}")
     )
 
-    # إرسال الرسالة مع عنوان الدرس والتصنيف
     tag_text = f"\n🏷️ التصنيف: *{tag}*" if tag else ""
     bot.send_message(
         message.chat.id,
-        f"🎬 *{title}* ({lesson_id}){tag_text}\nاختر الإجراء:",
+        f"🎬 *{title}* (درس رقم {lesson_number}){tag_text}\nاختر الإجراء:",
         parse_mode="Markdown",
         reply_markup=markup
         )
+    
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("quiz_"))
