@@ -1702,7 +1702,52 @@ def handle_view_flashcards(call):
     lesson_id = call.data.replace("view_flashcards_", "")
     send_flashcards(bot, call.message.chat.id, lesson_id)
 
+@bot.message_handler(commands=['index_by_tag'])
+def handle_index_by_tag(message):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT lesson_number, title, tag FROM lessons 
+            WHERE lesson_number IS NOT NULL 
+            ORDER BY 
+                CASE 
+                    WHEN tag = 'مبتدئ مريح' THEN 1
+                    WHEN tag = 'سهل' THEN 2
+                    WHEN tag = 'متوسط' THEN 3
+                    WHEN tag = 'سريع ومكثف' THEN 4
+                    ELSE 5
+                END, lesson_number
+        """)
+        rows = c.fetchall()
 
+    if not rows:
+        return bot.send_message(message.chat.id, "❌ لا توجد دروس متاحة بعد.")
+
+    # تجميع الدروس حسب التصنيف
+    tag_groups = {}
+    for num, title, tag in rows:
+        tag = tag or "غير مصنف"
+        tag_groups.setdefault(tag, []).append((num, title))
+
+    # إعداد الرد
+    tag_emojis = {
+        "مبتدئ مريح": "🟢",
+        "سهل": "🔵",
+        "متوسط": "🟠",
+        "سريع ومكثف": "🔴",
+        "غير مصنف": "⚪️"
+    }
+
+    reply = "📚 *فهرس الدروس حسب المستوى:*\n\n"
+    for tag, lessons in tag_groups.items():
+        emoji = tag_emojis.get(tag, "🗂️")
+        reply += f"{emoji} *{tag}:*\n"
+        for num, title in lessons:
+            reply += f"{num}. {title} — /lesson {num}\n"
+        reply += "\n"
+
+    bot.send_message(message.chat.id, reply, parse_mode="Markdown")
+    
 # نقطة نهاية الويب هوك
 @app.route('/' + os.getenv('TELEGRAM_BOT_TOKEN'), methods=['POST'])
 def webhook():
