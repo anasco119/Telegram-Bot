@@ -1615,70 +1615,6 @@ def handle_video_index(message):
         
 
 
-
-def send_flashcards(bot, chat_id, lesson_id, mode='private'):
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT line, explanation, vocab_notes 
-            FROM flashcards 
-            WHERE lesson_id = ?
-        """, (lesson_id,))
-        cards = c.fetchall()
-
-    if not cards:
-        bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس.")
-        return
-
-    for idx, (line, explanation, vocab) in enumerate(cards, start=1):
-        text = f"""📘 *البطاقة {idx}*
-✉️ *الجملة:* `{line}`
-
-📖 *الشرح:* {explanation}
-
-📌 *ملاحظات:* {vocab}"""
-        bot.send_message(chat_id, text, parse_mode='Markdown')
-
-    if mode == "channel":
-        bot.send_message(chat_id, f"✅ تم نشر بطاقات الدرس: {lesson_id}")
-
-
-
-def send_quiz(bot, chat_id, lesson_id, mode='private'):
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT quiz_number, question, options, answer 
-            FROM quizzes 
-            WHERE lesson_id = ?
-            ORDER BY quiz_number
-        """, (lesson_id,))
-        quizzes = c.fetchall()
-
-    if not quizzes:
-        bot.send_message(chat_id, "❌ لا توجد اختبارات محفوظة لهذا الدرس.")
-        return
-
-    quiz_data = {}
-    for quiz_number, question, options, answer in quizzes:
-        options = json.loads(options)
-        correct_idx = options.index(answer)
-        if quiz_number not in quiz_data:
-            quiz_data[quiz_number] = []
-        quiz_data[quiz_number].append((question, options, correct_idx))
-
-    for quiz_number, questions in quiz_data.items():
-        for question, options, correct_idx in questions:
-            bot.send_poll(
-                chat_id,
-                question=question,
-                options=options,
-                type='quiz',
-                correct_option_id=correct_idx,
-                is_anonymous=False
-        )
-
-
 @bot.message_handler(commands=['lesson'])
 def handle_lesson_command(message):
     parts = message.text.split()
@@ -1732,51 +1668,46 @@ def handle_view_flashcards(call):
     show_flashcards(call.message.chat.id, lesson_id)
 
 @bot.message_handler(commands=['index_by_tag'])
-def handle_index_by_tag(message):
+def show_lesson_index_by_tag(bot, chat_id):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("""
-            SELECT lesson_number, title, tag FROM lessons 
-            WHERE lesson_number IS NOT NULL 
-            ORDER BY 
-                CASE 
-                    WHEN tag = 'مبتدئ مريح' THEN 1
-                    WHEN tag = 'سهل' THEN 2
-                    WHEN tag = 'متوسط' THEN 3
-                    WHEN tag = 'سريع ومكثف' THEN 4
-                    ELSE 5
-                END, lesson_number
-        """)
-        rows = c.fetchall()
+        c.execute("SELECT lesson_number, title, tag FROM lessons WHERE tag IS NOT NULL ORDER BY lesson_number")
+        lessons = c.fetchall()
 
-    if not rows:
-        return bot.send_message(message.chat.id, "❌ لا توجد دروس متاحة بعد.")
+    if not lessons:
+        bot.send_message(chat_id, "❌ لا توجد دروس مصنفة حاليًا.")
+        return
 
-    # تجميع الدروس حسب التصنيف
-    tag_groups = {}
-    for num, title, tag in rows:
-        tag = tag or "غير مصنف"
-        tag_groups.setdefault(tag, []).append((num, title))
+    index_dict = {}
+    for lesson_number, title, tag in lessons:
+        if tag not in index_dict:
+            index_dict[tag] = []
+        # توليد رابط مباشر للتشغيل عبر التوجيه
+        lesson_link = f"[🔹 {lesson_number}. {title}](https://t.me/YOUR_BOT_USERNAME?start=lesson_{lesson_number})"
+        index_dict[tag].append(lesson_link)
 
-    # إعداد الرد
-    tag_emojis = {
-        "مبتدئ مريح": "🟢",
-        "سهل": "🔵",
-        "متوسط": "🟠",
-        "سريع ومكثف": "🔴",
-        "غير مصنف": "⚪️"
-    }
+    tag_order = [
+        ("🟢 مبتدئ مريح", "Pre-A1"),
+        ("🟡 مبتدئ واثق", "Pre-A1"),
+        ("🟠 مستعد للتحدي", "Pre-A1"),
+        ("🔴 مستوى متقدم", "Pre-A1"),
+    ]
 
-    reply = "📚 *فهرس الدروس حسب المستوى:*\n\n"
-    for tag, lessons in tag_groups.items():
-        emoji = tag_emojis.get(tag, "🗂️")
-        reply += f"{emoji} *{tag}:*\n"
-        for num, title in lessons:
-            reply += f"{num}. {title} — /lesson {num}\n"
-        reply += "\n"
+    message_parts = [
+        "📚 *فهرس دروس المستوى التمهيدي (Pre-A1)*\n",
+        "_اضغط على أي درس لبدء التعلّم مباشرة 👇_",
+        "",
+    ]
 
-    bot.send_message(message.chat.id, reply, parse_mode="Markdown")
+    for emoji_tag, level_name in tag_order:
+        tag_label = emoji_tag
+        lessons_text = "\n".join(index_dict.get(emoji_tag.split(" ")[1], []))
+        if lessons_text:
+            message_parts.append(f"🗂️ {tag_label}:\n{lessons_text}\n")
 
+    final_text = "\n".join(message_parts)
+
+    bot.send_message(chat_id, final_text, parse_mode="Markdown", disable_web_page_preview=True)
 
 
 
