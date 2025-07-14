@@ -1701,7 +1701,7 @@ def handle_view_flashcards(call):
     bot.answer_callback_query(call.id)
     show_flashcards(call.message.chat.id, lesson_id)
 
-@bot.message_handler(commands=['index_by_tag'])
+
 def show_lesson_index_by_tag(bot, chat_id):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -1743,7 +1743,9 @@ def show_lesson_index_by_tag(bot, chat_id):
 
     bot.send_message(chat_id, final_text, parse_mode="Markdown", disable_web_page_preview=True)
 
-
+@bot.message_handler(commands=['index_by_tag'])
+def handle_index_by_tag(message):
+    show_lesson_index_by_tag(message.chat.id)
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
