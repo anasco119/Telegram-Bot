@@ -1722,12 +1722,14 @@ def handle_lesson_command(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("quiz_"))
 def handle_quiz_start(call):
     lesson_id = call.data.replace("quiz_", "")
-    send_quiz(bot, call.message.chat.id, lesson_id)
+    bot.answer_callback_query(call.id)
+    start_quiz(call.message.chat.id, lesson_id, bot)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_flashcards_"))
 def handle_view_flashcards(call):
     lesson_id = call.data.replace("view_flashcards_", "")
-    send_flashcards(bot, call.message.chat.id, lesson_id)
+    bot.answer_callback_query(call.id)
+    show_flashcards(call.message.chat.id, lesson_id)
 
 @bot.message_handler(commands=['index_by_tag'])
 def handle_index_by_tag(message):
