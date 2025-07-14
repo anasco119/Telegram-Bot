@@ -1584,7 +1584,8 @@ def import_lessons_command(message):
         bot.reply_to(message, f"❌ حدث خطأ أثناء الاستيراد:\n{e}")
 
         
-@bot.message_handler(commands=['index'])
+
+   @bot.message_handler(commands=['index'])
 def handle_video_index(message):
     if not message.from_user or message.chat.type != "private":
         return
@@ -1604,15 +1605,48 @@ def handle_video_index(message):
             bot.send_message(message.chat.id, "📭 لا توجد فيديوهات محفوظة حتى الآن.")
             return
 
-        text = "🎬 *فهرس فيديوهات القناة:*\n\n"
-        for num, title, link in lessons:
-            text += f"🔹 *Lesson {num}:* [{title}]({link})\n"
+        # النص المنسق مع إضافة وصف القناة
+        text = """
+🌟 *فهرس دروس المستوى التمهيدي (PRE-LEVEL)* 🌟
+        
+📚 قناتنا *@EnglishConvs* تقدم لكم سلسلة متكاملة لتعلم الإنجليزية من الصفر حتى الاحتراف.        
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+🎥 *قائمة الدروس المتاحة:*\n
+"""
 
-        bot.send_message(message.chat.id, text, parse_mode="Markdown", disable_web_page_preview=True)
+        for num, title, link in lessons:
+            text += f"📌 *الدرس {num}:* [{title}]({link})\n"
+
+        text += """
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+✨ تابعونا على القناة لمزيد من الدروس المفيدة:
+@EnglishConvs
+"""
+
+        bot.send_message(
+            chat_id=message.chat.id,
+            text=text,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+            reply_markup=types.InlineKeyboardMarkup().add(
+                types.InlineKeyboardButton(
+                    text="زيارة القناة",
+                    url="https://t.me/EnglishConvs"
+                )
+            )
+        )
 
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ خطأ أثناء عرض الفهرس:\n{e}")
-        
+        error_msg = f"""
+⚠️ *حدث خطأ!*
+عذراً، لا يمكن عرض الفهرس الآن. يرجى المحاولة لاحقاً.
+"""
+        bot.send_message(
+            chat_id=message.chat.id,
+            text=error_msg,
+            parse_mode="Markdown"
+        )
+        print(f"Error in /index command: {e}")     
 
 
 @bot.message_handler(commands=['lesson'])
