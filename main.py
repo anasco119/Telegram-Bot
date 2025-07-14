@@ -1095,6 +1095,60 @@ def handle_summary(msg):
 # --------------------------------
 
 
+# ✅ تعيين تصنيف المستخدم (المستوى)
+def set_user_tag(chat_id, tag):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO users (user_id, level_tag)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET level_tag = excluded.level_tag
+        """, (chat_id, tag))
+        conn.commit()
+
+# ✅ الاشتراك في إشعارات تصنيف معين
+def subscribe_to_tag(chat_id, tag):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT subscriptions FROM users WHERE user_id = ?", (chat_id,))
+        row = c.fetchone()
+
+        subscriptions = []
+        if row and row[0]:
+            subscriptions = json.loads(row[0])
+
+        if tag not in subscriptions:
+            subscriptions.append(tag)
+
+        c.execute("""
+            INSERT INTO users (user_id, subscriptions)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET subscriptions = excluded.subscriptions
+        """, (chat_id, json.dumps(subscriptions, ensure_ascii=False)))
+        conn.commit()
+
+# ✅ إلغاء الاشتراك من تصنيف معين
+def unsubscribe_from_tag(chat_id, tag):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT subscriptions FROM users WHERE user_id = ?", (chat_id,))
+        row = c.fetchone()
+
+        if not row or not row[0]:
+            return
+
+        subscriptions = json.loads(row[0])
+        if tag in subscriptions:
+            subscriptions.remove(tag)
+
+        c.execute("""
+            UPDATE users SET subscriptions = ?
+            WHERE user_id = ?
+        """, (json.dumps(subscriptions, ensure_ascii=False), chat_id))
+        conn.commit()
+
+
+
 @bot.message_handler(commands=['start_level'])
 def ask_user_level(message):
     markup = InlineKeyboardMarkup()
@@ -1118,6 +1172,10 @@ def ask_user_level(message):
 def handle_set_level(call):
     tag = call.data.replace("set_level_", "")
     user_id = call.from_user.id
+    set_user_tag(chat_id, tag)
+    subscribe_to_tag(chat_id, tag)  # اشتراك تلقائي في الإشعارات
+    bot.answer_callback_query(call.id)
+    bot.send_message(chat_id, f"✅ تم تعيين مستواك إلى: {tag}\n🔔 وستتلقى إشعارات عندما يُنشر درس مناسب.")
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
