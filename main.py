@@ -1843,7 +1843,7 @@ def show_lesson_index_by_tag(bot, chat_id):
 
 @bot.message_handler(commands=['index_by_tag'])
 def handle_index_by_tag(message):
-    show_lesson_index_by_tag(message.chat.id)
+    show_lesson_index_by_tag(bot, message.chat.id)
 def get_user_level(user_id):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
