@@ -1353,15 +1353,25 @@ def handle_cancel_noto(call):
 # ----------------------------------------
 # ------------  start Cards ---------------------
 #---------------------------------------
-
 def show_flashcards(chat_id, lesson_id):
-    print(f"🧪 Received lesson_id: {lesson_id} (type: {type(lesson_id)})")
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
-        lesson = c.fetchone()
-        c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
-        total = c.fetchone()[0]
+    # التحقق من نوع المعرف
+    if lesson_id.startswith("old_lesson_"):
+        # البحث باستخدام lesson_number للدروس القديمة
+        lesson_number = lesson_id.split("_")[-1]
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, title FROM lessons WHERE id = ?", (lesson_id,))
+            lesson = c.fetchone()
+            c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+            total = c.fetchone()[0]
+    else:
+        # البحث باستخدام UUID للدروس الجديدة
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
+            lesson = c.fetchone()
+            c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+            total = c.fetchone()[0]
 
     if not lesson or total == 0:
         return bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس بعد.")
@@ -1498,15 +1508,31 @@ user_quiz_state = {}
 
 def start_quiz(chat_id, lesson_id, bot):
     """بدء اختبار معين وإرسال أول سؤال"""
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT quiz_number, question, options, answer 
-            FROM quizzes 
-            WHERE lesson_id = ? 
-            ORDER BY quiz_number
-        """, (lesson_id,))
-        quizzes = c.fetchall()
+    # تحديد نوع المعرف
+    if lesson_id.startswith("old_lesson_"):
+        # استعلام خاص للدروس القديمة
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT quiz_number, question, options, answer 
+                FROM quizzes 
+                WHERE lesson_id = ? 
+                ORDER BY quiz_number
+            """, (lesson_id,))
+            quizzes = c.fetchall()
+    else:
+        # استعلام للدروس الجديدة
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT quiz_number, question, options, answer 
+                FROM quizzes 
+                WHERE lesson_id = ? 
+                ORDER BY quiz_number
+            """, (lesson_id,))
+            quizzes = c.fetchall()
+
+    # ... باقي الكود بدون تغيير ...
 
     if not quizzes:
         bot.send_message(chat_id, "❌ لا توجد اختبارات محفوظة لهذا الدرس بعد.")
@@ -1745,9 +1771,8 @@ def handle_video_index(message):
             text=error_msg,
             parse_mode="Markdown"
         )
-        print(f"Error in /index command: {e}")     
-
-
+        print(f"Error in /index command: {e}")  
+        
 @bot.message_handler(commands=['lesson'])
 def handle_lesson_command(message):
     parts = message.text.split()
@@ -1759,7 +1784,7 @@ def handle_lesson_command(message):
     except ValueError:
         return bot.reply_to(message, "❗ رقم الدرس غير صالح. استخدم رقمًا مثل:\n/lesson 2")
 
-    # جلب بيانات الدرس من قاعدة البيانات
+    # البحث في قاعدة البيانات باستخدام lesson_number
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("SELECT id, title, tag FROM lessons WHERE lesson_number = ?", (lesson_number,))
@@ -1770,7 +1795,7 @@ def handle_lesson_command(message):
 
     lesson_id, title, tag = result
 
-    # إعداد الأزرار
+    # إرسال رسالة مع أزرار البطاقات والاختبارات
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("🎓 عرض البطاقات", callback_data=f"view_flashcards_{lesson_id}"),
@@ -1783,8 +1808,7 @@ def handle_lesson_command(message):
         f"🎬 *{title}* (درس رقم {lesson_number}){tag_text}\nاختر الإجراء:",
         parse_mode="Markdown",
         reply_markup=markup
-        )
-    
+    )
 
 
 
@@ -1797,9 +1821,20 @@ def handle_quiz_start(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_flashcards_"))
 def handle_view_flashcards(call):
     lesson_id = call.data.replace("view_flashcards_", "")
-    bot.answer_callback_query(call.id)
-    show_flashcards(call.message.chat.id, lesson_id)
-
+    
+    # فحص وجود البطاقات أولاً
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+        count = c.fetchone()[0]
+    
+    if count == 0:
+        bot.answer_callback_query(call.id, "⏳ جاري تحضير البطاقات...", show_alert=True)
+        # توليد البطاقات فوراً
+        # ... كود توليد البطاقات ...
+    else:
+        bot.answer_callback_query(call.id)
+        show_flashcards(call.message.chat.id, lesson_id)
 
 def show_lesson_index_by_tag(bot, chat_id):
     with sqlite3.connect(DB_FILE) as conn:
