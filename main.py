@@ -1584,8 +1584,7 @@ def import_lessons_command(message):
         bot.reply_to(message, f"❌ حدث خطأ أثناء الاستيراد:\n{e}")
 
         
-
-   @bot.message_handler(commands=['index'])
+@bot.message_handler(commands=['index'])
 def handle_video_index(message):
     if not message.from_user or message.chat.type != "private":
         return
