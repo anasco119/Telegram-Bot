@@ -1394,7 +1394,7 @@ def handle_flash_navigation(call):
     try:
         parts = call.data.split("_")
         action = parts[1]  # start / next / prev / restart / end
-        lesson_id = parts[2]
+        lesson_id = int(parts[2])  # أو str حسب نوعه في قاعدة البيانات
         current_card_id = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else None
 
         with sqlite3.connect(DB_FILE) as conn:
