@@ -1353,31 +1353,32 @@ def handle_cancel_noto(call):
 # ----------------------------------------
 # ------------  start Cards ---------------------
 #---------------------------------------
+
 def show_flashcards(chat_id, lesson_id):
-    # التحقق من نوع المعرف
-    if lesson_id.startswith("old_lesson_"):
-        # البحث باستخدام lesson_number للدروس القديمة
-        lesson_number = lesson_id.split("_")[-1]
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            c.execute("SELECT id, title FROM lessons WHERE id = ?", (lesson_id,))
-            lesson = c.fetchone()
-            c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
-            total = c.fetchone()[0]
-    else:
-        # البحث باستخدام UUID للدروس الجديدة
+    # تحديد نوع المعرف (رقم الدرس أو UUID)
+    if isinstance(lesson_id, str) and lesson_id.startswith("old_lesson_"):
+        # للدروس القديمة
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
             lesson = c.fetchone()
-            c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
-            total = c.fetchone()[0]
+            c.execute("SELECT id, line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
+            flashcards = c.fetchall()
+    else:
+        # للدروس الجديدة
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
+            lesson = c.fetchone()
+            c.execute("SELECT id, line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
+            flashcards = c.fetchall()
 
-    if not lesson or total == 0:
+    if not lesson or not flashcards:
         return bot.send_message(chat_id, "❌ لا توجد بطاقات تعليمية لهذا الدرس بعد.")
 
     lesson_title = lesson[0]
-
+    total = len(flashcards)
+    
     text = f"""📘 *بطاقات تعليمية للدرس: {lesson_title}*
 
 📽️ *عنوان الفيديو:* {lesson_title}
@@ -1399,18 +1400,18 @@ def show_flashcards(chat_id, lesson_id):
 
     bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=markup)
 
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("flash_"))
 def handle_flash_navigation(call):
     bot.answer_callback_query(call.id)
     try:
         parts = call.data.split("_")
         action = parts[1]  # start / next / prev / restart / end
-        lesson_id = parts[2]  # بدون تحويل إلى int
-        current_card_id = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else None
+        lesson_id = "_".join(parts[2:-1]) if len(parts) > 3 else parts[2]
+        current_card_id = int(parts[-1]) if len(parts) > 3 and parts[-1].isdigit() else None
 
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            # جميع البطاقات المرتبة
             c.execute("SELECT id, line, explanation, vocab_notes FROM flashcards WHERE lesson_id = ? ORDER BY id", (lesson_id,))
             all_cards = c.fetchall()
             total = len(all_cards)
@@ -1509,7 +1510,7 @@ user_quiz_state = {}
 def start_quiz(chat_id, lesson_id, bot):
     """بدء اختبار معين وإرسال أول سؤال"""
     # تحديد نوع المعرف
-    if lesson_id.startswith("old_lesson_"):
+    if isinstance(lesson_id, str) and lesson_id.startswith("old_lesson_"):
         # استعلام خاص للدروس القديمة
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
@@ -1517,7 +1518,7 @@ def start_quiz(chat_id, lesson_id, bot):
                 SELECT quiz_number, question, options, answer 
                 FROM quizzes 
                 WHERE lesson_id = ? 
-                ORDER BY quiz_number
+                ORDER BY quiz_number, id
             """, (lesson_id,))
             quizzes = c.fetchall()
     else:
@@ -1528,10 +1529,11 @@ def start_quiz(chat_id, lesson_id, bot):
                 SELECT quiz_number, question, options, answer 
                 FROM quizzes 
                 WHERE lesson_id = ? 
-                ORDER BY quiz_number
+                ORDER BY quiz_number, id
             """, (lesson_id,))
             quizzes = c.fetchall()
 
+   
     # ... باقي الكود بدون تغيير ...
 
     if not quizzes:
@@ -1773,6 +1775,7 @@ def handle_video_index(message):
         )
         print(f"Error in /index command: {e}")  
         
+
 @bot.message_handler(commands=['lesson'])
 def handle_lesson_command(message):
     parts = message.text.split()
@@ -1795,12 +1798,25 @@ def handle_lesson_command(message):
 
     lesson_id, title, tag = result
 
-    # إرسال رسالة مع أزرار البطاقات والاختبارات
+    # التحقق من وجود البطاقات أولاً
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+        flashcard_count = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM quizzes WHERE lesson_id = ?", (lesson_id,))
+        quiz_count = c.fetchone()[0]
+
+    buttons = []
+    if flashcard_count > 0:
+        buttons.append(InlineKeyboardButton("🎓 عرض البطاقات", callback_data=f"view_flashcards_{lesson_id}"))
+    if quiz_count > 0:
+        buttons.append(InlineKeyboardButton("📝 اختبر نفسك", callback_data=f"quiz_{lesson_id}"))
+
+    if not buttons:
+        return bot.send_message(message.chat.id, "❌ لا توجد محتويات تعليمية لهذا الدرس بعد.")
+
     markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("🎓 عرض البطاقات", callback_data=f"view_flashcards_{lesson_id}"),
-        InlineKeyboardButton("📝 اختبر نفسك", callback_data=f"quiz_{lesson_id}")
-    )
+    markup.add(*buttons)
 
     tag_text = f"\n🏷️ التصنيف: *{tag}*" if tag else ""
     bot.send_message(
@@ -1809,7 +1825,6 @@ def handle_lesson_command(message):
         parse_mode="Markdown",
         reply_markup=markup
     )
-
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("quiz_"))
@@ -1837,44 +1852,85 @@ def handle_view_flashcards(call):
         show_flashcards(call.message.chat.id, lesson_id)
 
 def show_lesson_index_by_tag(bot, chat_id):
+    # 1. جلب جميع الدروس المصنفة
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("SELECT lesson_number, title, tag FROM lessons WHERE tag IS NOT NULL ORDER BY lesson_number")
         lessons = c.fetchall()
 
     if not lessons:
-        bot.send_message(chat_id, "❌ لا توجد دروس مصنفة حاليًا.")
-        return
+        return bot.send_message(chat_id, "❌ لا توجد دروس مصنفة حاليًا.")
 
+    # 2. تجميع الدروس حسب التصنيف مع تطبيع العلامات
     index_dict = {}
     for lesson_number, title, tag in lessons:
-        if tag not in index_dict:
-            index_dict[tag] = []
-        # توليد رابط مباشر للتشغيل عبر التوجيه
+        # تطبيع العلامة: إزالة المسافات الزائدة وأحرف غير ضرورية
+        normalized_tag = re.sub(r'\s+', ' ', tag).strip().lower()
+        
+        if normalized_tag not in index_dict:
+            index_dict[normalized_tag] = []
+        
         lesson_link = f"[🔹 {lesson_number}. {title}](https://t.me/AIChatGeniebot?start=lesson_{lesson_number})"
-        index_dict[tag].append(lesson_link)
+        index_dict[normalized_tag].append(lesson_link)
 
+    # 3. ترتيب التصنيفات كما نريد مع مراعاة التطبيع
     tag_order = [
         ("🟢 مبتدئ مريح", "مبتدئ مريح"),
         ("🟡 مبتدئ واثق", "مبتدئ واثق"),
         ("🟠 مستعد للتحدي", "مستعد للتحدي"),
         ("🔴 مستوى متقدم", "مستوى متقدم"),
     ]
-
+    
+    # 4. بناء الرسالة مع التحقق من وجود دروس
     message_parts = [
         "📚 *فهرس دروس المستوى التمهيدي (Pre-level)*\n",
         "_اضغط على أي درس لبدء التعلّم مباشرة 👇_",
-        "",
+        ""
     ]
 
+    found_categories = 0
+    
     for emoji_tag, level_name in tag_order:
-        lessons_text = "\n".join(index_dict.get(level_name, []))  # ✅ استخدام level_name
-        if lessons_text:
+        # تطبيع اسم المستوى للمطابقة
+        normalized_level = re.sub(r'\s+', ' ', level_name).strip().lower()
+        
+        if normalized_level in index_dict:
+            found_categories += 1
+            lessons_list = index_dict[normalized_level]
+            lessons_text = "\n".join(lessons_list)
             message_parts.append(f"🗂️ {emoji_tag}:\n{lessons_text}\n")
 
-    final_text = "\n".join(message_parts)
+    # 5. التحقق مما إذا تم العثور على أي تصنيفات
+    if found_categories == 0:
+        # عرض جميع التصنيفات المتاحة إذا لم نجد المحددة
+        message_parts.append("\n📂 *جميع التصنيفات المتاحة:*")
+        for tag, lessons_list in index_dict.items():
+            lessons_text = "\n".join(lessons_list)
+            message_parts.append(f"\n🗂️ {tag.capitalize()}:\n{lessons_text}")
 
-    bot.send_message(chat_id, final_text, parse_mode="Markdown", disable_web_page_preview=True)
+    # 6. تجميع الرسالة مع التحقق من الطول
+    final_text = "\n".join(message_parts)
+    
+    if len(final_text) > 4000:
+        # إذا كانت الرسالة طويلة جدًا، نقسمها إلى أجزاء
+        parts = []
+        current_part = ""
+        
+        for line in final_text.split('\n'):
+            if len(current_part) + len(line) + 1 > 4000:
+                parts.append(current_part)
+                current_part = line
+            else:
+                current_part += '\n' + line
+        
+        if current_part:
+            parts.append(current_part)
+        
+        # إرسال الأجزاء
+        for part in parts:
+            bot.send_message(chat_id, part, parse_mode="Markdown", disable_web_page_preview=True)
+    else:
+        bot.send_message(chat_id, final_text, parse_mode="Markdown", disable_web_page_preview=True)
 
 @bot.message_handler(commands=['index_by_tag'])
 def handle_index_by_tag(message):
@@ -1938,6 +1994,46 @@ def handle_start(message):
 
     else:
         bot.send_message(message.chat.id, "👋 مرحبًا بك في البوت!")
+
+
+
+@bot.message_handler(commands=['check_content'])
+def check_content(message):
+    parts = message.text.split()
+    if len(parts) < 2:
+        return bot.reply_to(message, "❗ استخدم الأمر بهذا الشكل:\n/check_content 3")
+
+    try:
+        lesson_number = int(parts[1])
+    except ValueError:
+        return bot.reply_to(message, "❗ رقم الدرس غير صالح.")
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id FROM lessons WHERE lesson_number = ?", (lesson_number,))
+        lesson = c.fetchone()
+
+    if not lesson:
+        return bot.send_message(message.chat.id, "❌ لم يتم العثور على هذا الدرس.")
+
+    lesson_id = lesson[0]
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
+        flash_count = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM quizzes WHERE lesson_id = ?", (lesson_id,))
+        quiz_count = c.fetchone()[0]
+
+    bot.send_message(
+        message.chat.id,
+        f"📊 محتوى الدرس {lesson_number}:\n"
+        f"📚 بطاقات تعليمية: {flash_count}\n"
+        f"📝 اختبارات: {quiz_count}",
+        parse_mode="Markdown"
+    )
+
+
 
 @bot.message_handler(func=lambda message: True)
 def chat_with_gemini(message):
