@@ -1815,7 +1815,7 @@ def show_lesson_index_by_tag(bot, chat_id):
         if tag not in index_dict:
             index_dict[tag] = []
         # توليد رابط مباشر للتشغيل عبر التوجيه
-        lesson_link = f"[🔹 {lesson_number}. {title}](https://t.me/YOUR_BOT_USERNAME?start=lesson_{lesson_number})"
+        lesson_link = f"[🔹 {lesson_number}. {title}](https://t.me/AIChatGeniebot?start=lesson_{lesson_number})"
         index_dict[tag].append(lesson_link)
 
     tag_order = [
