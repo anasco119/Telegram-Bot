@@ -1093,7 +1093,26 @@ def handle_summary(msg):
 # -------------------------
 # ------ Notifying users --------
 # --------------------------------
+import sqlite3
 
+DB_FILE = "lessons.db"
+
+def alter_users_table():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+
+        # التحقق مما إذا كان العمود موجودًا مسبقًا
+        c.execute("PRAGMA table_info(users)")
+        columns = [col[1] for col in c.fetchall()]
+
+        if "subscriptions" not in columns:
+            print("🛠️ إضافة عمود 'subscriptions' إلى جدول users...")
+            c.execute("ALTER TABLE users ADD COLUMN subscriptions TEXT")
+            conn.commit()
+        else:
+            print("✅ العمود 'subscriptions' موجود بالفعل.")
+
+alter_users_table()
 
 # ✅ تعيين تصنيف المستخدم (المستوى)
 def set_user_tag(chat_id, tag):
