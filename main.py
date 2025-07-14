@@ -1522,13 +1522,15 @@ def handle_poll_answer(poll_answer):
 
 
 def generate_all_content_on_startup():
+    print("🚀 بدء توليد المحتوى التعليمي لجميع الدروس...\n")
+
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("SELECT id, video_id, srt_content, summary FROM lessons WHERE srt_content IS NOT NULL AND summary IS NOT NULL")
         lessons = c.fetchall()
 
     for lesson_id, video_id, srt_content, summary in lessons:
-        # تحقق إذا كانت البطاقات موجودة مسبقًا
+        # التحقق من وجود البطاقات
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("SELECT COUNT(*) FROM flashcards WHERE lesson_id = ?", (lesson_id,))
@@ -1536,13 +1538,16 @@ def generate_all_content_on_startup():
 
         if flashcard_count == 0:
             try:
-                print(f"🧠 توليد البطاقات للدرس {lesson_id}...")
+                print(f"📘 توليد البطاقات للدرس {lesson_id}...")
                 generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
+                print(f"✅ تم توليد البطاقات للدرس {lesson_id}")
             except Exception as e:
                 print(f"❌ فشل في توليد البطاقات للدرس {lesson_id}:\n{e}")
                 continue
+        else:
+            print(f"✔️ البطاقات موجودة مسبقًا للدرس {lesson_id}")
 
-        # تحقق إذا كانت الاختبارات موجودة مسبقًا
+        # التحقق من وجود اختبارات
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute("SELECT COUNT(*) FROM quizzes WHERE lesson_id = ?", (lesson_id,))
@@ -1551,9 +1556,14 @@ def generate_all_content_on_startup():
         if quiz_count == 0:
             try:
                 print(f"📝 توليد اختبارات للدرس {lesson_id}...")
-                generate_quizzes_for_lesson(lesson_id)
+                total_questions = generate_quizzes_for_lesson(lesson_id)
+                print(f"✅ تم توليد {total_questions} سؤالًا للدرس {lesson_id}")
             except Exception as e:
                 print(f"❌ فشل في توليد اختبارات للدرس {lesson_id}:\n{e}")
+        else:
+            print(f"✔️ الاختبارات موجودة مسبقًا للدرس {lesson_id}")
+
+    print("\n🎉 اكتملت عملية توليد المحتوى لجميع الدروس.")
 
 # ----------------------------------------
 # ------- old code -------------------------
