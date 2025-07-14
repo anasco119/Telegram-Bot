@@ -1355,6 +1355,7 @@ def handle_cancel_noto(call):
 #---------------------------------------
 
 def show_flashcards(chat_id, lesson_id):
+    print(f"🧪 Received lesson_id: {lesson_id} (type: {type(lesson_id)})")
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("SELECT title FROM lessons WHERE id = ?", (lesson_id,))
@@ -1394,7 +1395,7 @@ def handle_flash_navigation(call):
     try:
         parts = call.data.split("_")
         action = parts[1]  # start / next / prev / restart / end
-        lesson_id = int(parts[2])  # أو str حسب نوعه في قاعدة البيانات
+        lesson_id = parts[2]  # بدون تحويل إلى int
         current_card_id = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else None
 
         with sqlite3.connect(DB_FILE) as conn:
@@ -1824,6 +1825,7 @@ def show_lesson_index_by_tag(bot, chat_id):
         ("🟠 مستعد للتحدي", "مستعد للتحدي"),
         ("🔴 مستوى متقدم", "مستوى متقدم"),
     ]
+
     message_parts = [
         "📚 *فهرس دروس المستوى التمهيدي (Pre-level)*\n",
         "_اضغط على أي درس لبدء التعلّم مباشرة 👇_",
@@ -1831,10 +1833,9 @@ def show_lesson_index_by_tag(bot, chat_id):
     ]
 
     for emoji_tag, level_name in tag_order:
-        tag_label = emoji_tag
-        lessons_text = "\n".join(index_dict.get(emoji_tag.split(" ")[1], []))
+        lessons_text = "\n".join(index_dict.get(level_name, []))  # ✅ استخدام level_name
         if lessons_text:
-            message_parts.append(f"🗂️ {tag_label}:\n{lessons_text}\n")
+            message_parts.append(f"🗂️ {emoji_tag}:\n{lessons_text}\n")
 
     final_text = "\n".join(message_parts)
 
