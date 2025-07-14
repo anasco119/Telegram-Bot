@@ -1746,16 +1746,27 @@ def show_lesson_index_by_tag(bot, chat_id):
 @bot.message_handler(commands=['index_by_tag'])
 def handle_index_by_tag(message):
     show_lesson_index_by_tag(message.chat.id)
+def get_user_level(user_id):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT level_tag FROM users WHERE user_id = ?", (user_id,))
+        result = c.fetchone()
+        return result[0] if result else None
+        
+        
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     args = message.text.split()
 
     if len(args) > 1:
-        payload = args[1]  # استخدم اسم موحّد بدلاً من param
+        payload = args[1]
 
         if payload == "index":
             handle_video_index(message)
+
+        elif payload == "tag_index":
+            show_lesson_index_by_tag(bot, message.chat.id)
 
         elif payload.startswith("lesson_"):
             lesson_id = payload.replace("lesson_", "")
@@ -1763,10 +1774,34 @@ def handle_start(message):
 
         elif payload.startswith("quiz_"):
             lesson_id = payload.replace("quiz_", "")
-            start_quiz(message.chat.id, lesson_id, bot)  # مرر bot هنا
+            start_quiz(message.chat.id, lesson_id, bot)
+
+        elif payload.startswith("flashcards_"):
+            lesson_id = payload.replace("flashcards_", "")
+            show_flashcards(message.chat.id, lesson_id)
+
+        elif payload.startswith("tag_"):
+            tag = payload.replace("tag_", "")
+            set_user_tag(message.chat.id, tag)
+            bot.send_message(message.chat.id, f"✅ تم تعيين مستواك إلى: {tag}")
+
+        elif payload.startswith("subscribe_"):
+            tag = payload.replace("subscribe_", "")
+            subscribe_to_tag(message.chat.id, tag)
+            bot.send_message(message.chat.id, f"🔔 تم الاشتراك في إشعارات الدروس من التصنيف: {tag}")
+
+        elif payload.startswith("unsubscribe_"):
+            tag = payload.replace("unsubscribe_", "")
+            unsubscribe_from_tag(message.chat.id, tag)
+            bot.send_message(message.chat.id, f"🚫 تم إلغاء الاشتراك من التصنيف: {tag}")
+
+        elif payload == "mytag":
+            tag = get_user_tag(message.chat.id)
+            bot.send_message(message.chat.id, f"🎯 مستواك الحالي هو: {tag}" if tag else "❗ لم يتم تعيين مستوى بعد.")
 
         else:
-            bot.send_message(message.chat.id, f"مرحبًا بك! لم يتم التعرف على الأمر: {payload}")
+            bot.send_message(message.chat.id, f"❓ لم يتم التعرف على الأمر: `{payload}`", parse_mode="Markdown")
+            
 
     else:
         bot.send_message(message.chat.id, "👋 مرحبًا بك في البوت!")
