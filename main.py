@@ -182,7 +182,29 @@ def insert_old_lessons_from_json(json_path):
 
 init_db()
 insert_old_lessons_from_json("videos_list.json")
-        
+
+
+DB_FILE = "lessons.db"
+TEXT_LESSONS_FILE = "text_lessons.json"
+
+def import_text_lessons():
+    with open(TEXT_LESSONS_FILE, "r", encoding="utf-8") as f:
+        lessons = json.load(f)
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        for lesson in lessons:
+            lesson_id = lesson["id"]
+            content = lesson["content"]
+            print(f"📥 استيراد الدرس: {lesson_id}")
+            c.execute("""
+                REPLACE INTO lessons (id, content)
+                VALUES (?, ?)
+            """, (lesson_id, content))
+        conn.commit()
+    print("✅ تم استيراد جميع الدروس النصية.")
+
+
 def download_and_extract_ffmpeg():
     url = "https://github.com/anasco119/Telegram-Bot/releases/download/GenieV3/bin.zip"
     zip_path = "bin.zip"
