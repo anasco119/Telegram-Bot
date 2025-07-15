@@ -153,7 +153,7 @@ def insert_old_lessons_from_json(json_path):
             lessons = json.load(f)
 
         for i, lesson in enumerate(lessons, start=1):
-            lesson_id = f"old_lesson_{i}"
+            lesson_id = f"lesson{lesson_number}"
             content = f"{lesson.get('title', '')}\n{lesson.get('link', '')}"
 
             c.execute("""
@@ -1414,7 +1414,6 @@ def show_flashcards(chat_id, lesson_id):
 def handle_flash_navigation(call):
     bot.answer_callback_query(call.id)
     try:
-        _, action, lesson_id, *rest = call.data.split("_")
         parts = call.data.split("_")
         action = parts[1]  # start / next / prev / restart / end
         lesson_id = "_".join(parts[2:-1]) if len(parts) > 3 else parts[2]
