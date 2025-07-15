@@ -1361,13 +1361,6 @@ def handle_cancel_noto(call):
 # ----------------------------------------
 # ------------  start Cards ---------------------
 #---------------------------------------
-@bot.callback_query_handler(func=lambda call: call.data.startswith("flash_"))
-def handle_flash_navigation(call):
-    
-    # lesson_id هنا هي نفس النص المخزن في flashcards.lesson_id
-    # لا تفعل int(lesson_id)!
-    # ...
-
 
 def show_flashcards(chat_id, lesson_id):
     lesson_id = str(lesson_id)   # تأكد من أنه نص
