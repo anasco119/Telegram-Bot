@@ -1246,7 +1246,15 @@ def notify_users_by_tag(tag, lesson_title, lesson_id):
             print(f"⚠️ فشل إرسال الدرس للمستخدم {user[0]}: {e}")
 
 
+def debug_flashcard_ids():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT lesson_id FROM flashcards")
+        rows = c.fetchall()
+    print("🧪 DEBUG: lesson_id in flashcards:", rows)
 
+# ثم استدعها قبل تنقل البطاقات:
+debug_flashcard_ids()
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("generate_flashcards_"))
 def handle_generate_flashcards(call):
@@ -1353,8 +1361,16 @@ def handle_cancel_noto(call):
 # ----------------------------------------
 # ------------  start Cards ---------------------
 #---------------------------------------
+@bot.callback_query_handler(func=lambda call: call.data.startswith("flash_"))
+def handle_flash_navigation(call):
+    
+    # lesson_id هنا هي نفس النص المخزن في flashcards.lesson_id
+    # لا تفعل int(lesson_id)!
+    # ...
+
 
 def show_flashcards(chat_id, lesson_id):
+    lesson_id = str(lesson_id)   # تأكد من أنه نص
     # تحديد نوع المعرف (رقم الدرس أو UUID)
     if isinstance(lesson_id, str) and lesson_id.startswith("old_lesson_"):
         # للدروس القديمة
@@ -1405,6 +1421,7 @@ def show_flashcards(chat_id, lesson_id):
 def handle_flash_navigation(call):
     bot.answer_callback_query(call.id)
     try:
+        _, action, lesson_id, *rest = call.data.split("_")
         parts = call.data.split("_")
         action = parts[1]  # start / next / prev / restart / end
         lesson_id = "_".join(parts[2:-1]) if len(parts) > 3 else parts[2]
