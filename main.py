@@ -411,7 +411,7 @@ def generate_gemini_response(prompt: str) -> str:
                 "HTTP-Referer": "https://t.me/Oiuhelper_bot",  # يجب أن يكون رابط حقيقي
                 "X-Title": "AI Quiz Bot"
             }
-            model_identifier = "google/gemini-1.5-flash"  # ✅ النموذج المجاني الأقوى حالياً
+            model_identifier = "google/gemini-2.0-flash-exp:free"  # ✅ النموذج المجاني الأقوى حالياً
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers=headers,
