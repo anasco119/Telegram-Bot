@@ -153,6 +153,7 @@ def insert_old_lessons_from_json(json_path):
             lessons = json.load(f)
 
         for i, lesson in enumerate(lessons, start=1):
+            lesson_number = i
             lesson_id = f"lesson{lesson_number}"
             content = f"{lesson.get('title', '')}\n{lesson.get('link', '')}"
 
