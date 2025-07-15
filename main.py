@@ -402,6 +402,32 @@ def generate_gemini_response(prompt: str) -> str:
     timeout_seconds = 45
 
 
+    # 4️⃣# 5️⃣ OpenRouter - Gemini 1.5 Flash
+    if OPENROUTER_API_KEY:
+        try:
+            logging.info("Attempting request with: 3. OpenRouter (Gemini 1.5 Flash)...")
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "HTTP-Referer": "https://t.me/Oiuhelper_bot",  # يجب أن يكون رابط حقيقي
+                "X-Title": "AI Quiz Bot"
+            }
+            model_identifier = "google/gemini-1.5-flash"  # ✅ النموذج المجاني الأقوى حالياً
+            response = requests.post(
+                url="https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": model_identifier,
+                    "messages": [{"role": "user", "content": prompt}]
+                },
+                timeout=timeout_seconds
+            )
+            response.raise_for_status()
+            result_text = response.json()['choices'][0]['message']['content']
+            logging.info("✅ Success with OpenRouter (Gemini 1.5 Flash).")
+            return result_text
+        except Exception as e:
+            logging.warning(f"❌ OpenRouter (Gemini 1.5 Flash) failed: {e}")
+            
     # 2️⃣ Google Gemini
     if gemini_model:
         try:
