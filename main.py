@@ -1136,6 +1136,8 @@ def handle_summary(msg):
             conn.commit()
 
         bot.send_message(msg.chat.id, f"✅ تم حفظ الدرس: {title} (رقم {lesson_number}) بنجاح.")
+        temp_data.clear()
+        user_states.pop(msg.from_user.id, None)
         
             # ✅ بعد الحفظ الناجح: عرض أزرار توليد البطاقات
         markup = types.InlineKeyboardMarkup()
