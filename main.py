@@ -348,22 +348,28 @@ def cancel_post(call):
         bot.answer_callback_query(call.id, f"حدث خطأ أثناء الإلغاء: {e}", show_alert=True)
 
             
-
 @app.route('/reader')
 def reader():
     text_id = request.args.get("text_id")
-    
-    # تحقق من أن النص موجود في قاعدة البيانات
+    if not text_id:
+        return "❌ لم يتم تحديد النص المطلوب"
+
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT id, title, content FROM text_lessons")
-        return c.fetchall()
-        
-    if lesson:
-        return render_template("reader.html", text=lesson[0])
-    else:
-        return "❌ الدرس غير موجود"
+        c.execute("SELECT id, title, content FROM text_lessons WHERE id = ?", (text_id,))
+        row = c.fetchone()
 
+        if not row:
+            return "❌ الدرس غير موجود"
+
+        lesson = {
+            "id": row[0],
+            "title": row[1] or "بدون عنوان",
+            "content": row[2]
+        }
+
+    return render_template("reader.html", lesson=lesson)
+    
 
 # --- إعداد المفاتيح والعمل
 
