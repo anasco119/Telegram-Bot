@@ -1724,6 +1724,7 @@ def generate_all_content_on_startup():
             try:
                 print(f"📘 توليد البطاقات للدرس {lesson_id}...")
                 generate_flashcards_for_lesson(lesson_id, video_id, srt_content, summary)
+                time.sleep(5)  # ⏳ انتظر 5 ثوانٍ بين كل طلب
                 print(f"✅ تم توليد البطاقات للدرس {lesson_id}")
             except Exception as e:
                 print(f"❌ فشل في توليد البطاقات للدرس {lesson_id}:\n{e}")
@@ -1741,6 +1742,7 @@ def generate_all_content_on_startup():
             try:
                 print(f"📝 توليد اختبارات للدرس {lesson_id}...")
                 total_questions = generate_quizzes_for_lesson(lesson_id)
+                time.sleep(5)  # ⏳ انتظر 5 ثوانٍ بين كل طلب
                 print(f"✅ تم توليد {total_questions} سؤالًا للدرس {lesson_id}")
             except Exception as e:
                 print(f"❌ فشل في توليد اختبارات للدرس {lesson_id}:\n{e}")
@@ -2014,7 +2016,7 @@ def handle_start(message):
             show_lesson_index_by_tag(bot, message.chat.id)
 
         elif payload.startswith("lesson_"):
-            lesson_id = payload.replace("lesson_", "")
+            lesson_id = payload[len("lesson_"):]
             show_flashcards(message.chat.id, lesson_id)
 
         elif payload.startswith("quiz_"):
