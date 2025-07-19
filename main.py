@@ -133,7 +133,18 @@ def init_db():
         logging.error(f"Database initialization error: {e}")
 
 
-
+def create_text_lessons_table():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS text_lessons (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                content TEXT
+            )
+        """)
+        conn.commit()
+    print("✅ تم إنشاء جدول text_lessons.")
 def insert_old_lessons_from_json(json_path):
     if not os.path.exists(json_path):
         print(f"❌ الملف غير موجود: {json_path}")
@@ -187,7 +198,6 @@ insert_old_lessons_from_json("videos_list.json")
 
 DB_FILE = "lessons.db"
 TEXT_LESSONS_FILE = "text_lessons.json"
-
 def import_text_lessons():
     with open(TEXT_LESSONS_FILE, "r", encoding="utf-8") as f:
         lessons = json.load(f)
@@ -196,12 +206,13 @@ def import_text_lessons():
         c = conn.cursor()
         for lesson in lessons:
             lesson_id = lesson["id"]
+            title = lesson.get("title", "")
             content = lesson["content"]
-            print(f"📥 استيراد الدرس: {lesson_id}")
+            print(f"📥 استيراد الدرس النصي: {lesson_id}")
             c.execute("""
-                REPLACE INTO lessons (id, content)
-                VALUES (?, ?)
-            """, (lesson_id, content))
+                REPLACE INTO text_lessons (id, title, content)
+                VALUES (?, ?, ?)
+            """, (lesson_id, title, content))
         conn.commit()
     print("✅ تم استيراد جميع الدروس النصية.")
 
@@ -345,9 +356,9 @@ def reader():
     # تحقق من أن النص موجود في قاعدة البيانات
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT content FROM lessons WHERE id=?", (text_id,))
-        lesson = c.fetchone()
-    
+        c.execute("SELECT id, title, content FROM text_lessons")
+        return c.fetchall()
+        
     if lesson:
         return render_template("reader.html", text=lesson[0])
     else:
