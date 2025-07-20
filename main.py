@@ -2036,7 +2036,41 @@ def get_user_level(user_id):
         result = c.fetchone()
         return result[0] if result else None
         
-        
+
+
+# ------------------------
+# --------- أوامر قاعدة البيانات ----
+# --------------------------------
+
+
+@bot.message_handler(commands=['backup_db'])
+def send_database_file(message):
+    if message.from_user.id != ALLOWED_USER_ID:
+        bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
+    user_id = message.from_user.id
+    try:
+        with open("lessons.db", "rb") as db_file:
+            bot.send_document(user_id, db_file, caption="📦 النسخة الاحتياطية من قاعدة البيانات")
+    except Exception as e:
+        bot.reply_to(message, f"حدث خطأ أثناء تحميل قاعدة البيانات: {e}")
+
+
+
+@bot.message_handler(content_types=['document'])
+def receive_database_file(message):
+    if message.from_user.id != ALLOWED_USER_ID:
+        bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
+    if message.document.file_name.endswith('.db'):
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        # احفظ القاعدة في مكانها (مثلاً: your_database.db)
+        with open("lessons.db", "wb") as new_db:
+            new_db.write(downloaded_file)
+
+        bot.reply_to(message, "✅ تم استبدال قاعدة البيانات بنجاح!")
+    else:
+        bot.reply_to(message, "⚠️ الرجاء إرسال ملف قاعدة بيانات بصيغة .db فقط.")
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
