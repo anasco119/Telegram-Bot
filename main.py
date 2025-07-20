@@ -2036,6 +2036,92 @@ def get_user_level(user_id):
         result = c.fetchone()
         return result[0] if result else None
         
+@bot.message_handler(commands=['quizvideo'])
+def ask_for_video(msg):
+    if msg.chat.type != "private":
+        return
+    bot.reply_to(msg, "🎥 أرسل الآن الفيديو الذي تريد إنشاء سؤال منه.")
+
+@bot.message_handler(content_types=['video'])
+def handle_video(msg):
+    try:
+        if msg.chat.type != "private":
+            return
+
+        if message.from_user.id != ALLOWED_USER_ID:
+            bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
+        bot.reply_to(msg, "⏳ جارٍ معالجة الفيديو، الرجاء الانتظار...")
+
+        file_info = bot.get_file(msg.video.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        temp_dir = "temp"
+        os.makedirs(temp_dir, exist_ok=True)
+        video_path = os.path.join(temp_dir, f"{msg.message_id}.mp4")
+        audio_path = os.path.join(temp_dir, f"{msg.message_id}.wav")
+
+        with open(video_path, "wb") as f:
+            f.write(downloaded_file)
+
+        # 🟡 استخراج الصوت باستخدام moviepy
+        try:
+            clip = VideoFileClip(video_path)
+            clip.audio.write_audiofile(audio_path, fps=16000, nbytes=2, codec='pcm_s16le', ffmpeg_params=["-ac", "1"])
+        except Exception as e:
+            bot.reply_to(msg, "❌ فشل في استخراج الصوت من الفيديو.")
+            print("Audio extract error:", e)
+            return
+
+        # 🟡 محاولة التفريغ باستخدام Deepgram
+        full_text = transcribe_with_deepgram(audio_path)
+
+        # إذا فشل، ننتقل إلى AssemblyAI
+        if not full_text:
+            full_text = transcribe_with_assembly(audio_path)
+
+        if not full_text:
+            bot.reply_to(msg, "❌ فشل في تحويل الصوت إلى نص.")
+            return
+
+        # 🧠 توليد سؤال من Gemini
+        prompt = f"""أنشئ سؤال اختيار من متعدد باللغة العربية بناءً على النص التالي المفرغ من فيديو تعليمي:
+\"\"\"{full_text}\"\"\"
+
+الناتج بصيغة JSON فقط:
+{{
+  "question": "ماذا سمعت في الفيديو؟",
+  "options": ["", "", "", ""],
+  "correct_option_id": 0
+}}"""
+        ai_raw = generate_gemini_response(prompt)
+        quiz_json = extract_json_from_string(ai_raw)
+
+        if not quiz_json:
+            bot.reply_to(msg, "❌ فشل في توليد السؤال.")
+            return
+
+        # 📤 إرسال الفيديو للقناة
+        bot.send_video(CHANNEL_ID, open(video_path, 'rb'), caption="🎧 فيديو تعليمي للاستماع")
+
+        # 🗳️ إرسال Poll
+        bot.send_poll(
+            CHANNEL_ID,
+            question=quiz_json['question'],
+            options=quiz_json['options'],
+            type="quiz",
+            correct_option_id=quiz_json['correct_option_id'],
+            is_anonymous=False
+        )
+
+        # 🧹 حذف الملفات
+        os.remove(video_path)
+        os.remove(audio_path)
+
+    except Exception as e:
+        print("❌ General error:", e)
+        bot.reply_to(msg, "❌ حدث خطأ أثناء معالجة الفيديو.")
+
+
 
 
 # ------------------------
