@@ -145,6 +145,9 @@ def create_text_lessons_table():
         """)
         conn.commit()
     print("✅ تم إنشاء جدول text_lessons.")
+
+create_text_lessons_table()
+
 def insert_old_lessons_from_json(json_path):
     if not os.path.exists(json_path):
         print(f"❌ الملف غير موجود: {json_path}")
@@ -2171,7 +2174,6 @@ def set_webhook():
 if __name__ == "__main__":
     set_webhook()
     generate_all_content_on_startup()
-    create_text_lessons_table()
     import_text_lessons()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
