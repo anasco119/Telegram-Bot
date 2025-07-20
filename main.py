@@ -347,29 +347,18 @@ def cancel_post(call):
         logging.error(f"خطأ في cancel_post: {e}")
         bot.answer_callback_query(call.id, f"حدث خطأ أثناء الإلغاء: {e}", show_alert=True)
 
-            
-@app.route('/reader')
-def reader():
-    text_id = request.args.get("text_id")
-    if not text_id:
-        return "❌ لم يتم تحديد النص المطلوب"
-
-    with sqlite3.connect(DB_FILE) as conn:
+@app.route("/reader/<int:lesson_id>")
+def reader(lesson_id):
+    with sqlite3.connect("lessons.db") as conn:
         c = conn.cursor()
-        c.execute("SELECT id, title, content FROM text_lessons WHERE id = ?", (text_id,))
-        row = c.fetchone()
+        c.execute("SELECT content FROM lessons WHERE id = ?", (lesson_id,))
+        lesson = c.fetchone()
 
-        if not row:
-            return "❌ الدرس غير موجود"
+        if lesson is None:
+            return "❌ لم يتم العثور على هذا الدرس.", 404
 
-        lesson = {
-            "id": row[0],
-            "title": row[1] or "بدون عنوان",
-            "content": row[2]
-        }
+        return render_template("reader.html", text=lesson[0])            
 
-    return render_template("reader.html", text=lesson[0])
-    
 
 # --- إعداد المفاتيح والعمل
 
