@@ -124,6 +124,13 @@ def init_db():
                 level_tag TEXT
             )
             """)
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS text_lessons (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                content TEXT
+            )
+            """)
             conn.commit()
 
 
@@ -133,20 +140,6 @@ def init_db():
         logging.error(f"Database initialization error: {e}")
 
 
-def create_text_lessons_table():
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS text_lessons (
-                id TEXT PRIMARY KEY,
-                title TEXT,
-                content TEXT
-            )
-        """)
-        conn.commit()
-    print("✅ تم إنشاء جدول text_lessons.")
-
-create_text_lessons_table()
 
 def insert_old_lessons_from_json(json_path):
     if not os.path.exists(json_path):
@@ -197,6 +190,7 @@ def insert_old_lessons_from_json(json_path):
 
 init_db()
 insert_old_lessons_from_json("videos_list.json")
+
 
 
 DB_FILE = "lessons.db"
