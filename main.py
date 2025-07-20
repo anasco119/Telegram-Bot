@@ -368,7 +368,7 @@ def reader():
             "content": row[2]
         }
 
-    return render_template("reader.html", lesson=lesson)
+    return render_template("reader.html", text=lesson[0])
     
 
 # --- إعداد المفاتيح والعمل
