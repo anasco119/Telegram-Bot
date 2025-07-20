@@ -344,18 +344,23 @@ def cancel_post(call):
         logging.error(f"خطأ في cancel_post: {e}")
         bot.answer_callback_query(call.id, f"حدث خطأ أثناء الإلغاء: {e}", show_alert=True)
 
-@app.route("/reader/<int:lesson_id>")
-def reader(lesson_id):
+@app.route('/reader')
+def reader():
+    text_id = request.args.get('text_id')  # الحصول على المعلمة من query string
+    
+    if not text_id:
+        return "❌ يرجى تحديد معرف الدرس.", 400
+    
     with sqlite3.connect("lessons.db") as conn:
         c = conn.cursor()
-        c.execute("SELECT content FROM text_lessons WHERE id = ?", (str(lesson_id),))  # تحويل id إلى str لأنه مخزن كنص
+        c.execute("SELECT content FROM text_lessons WHERE id = ?", (text_id,))
         lesson = c.fetchone()
 
         if lesson is None:
             return "❌ لم يتم العثور على هذا الدرس.", 404
 
         return render_template("reader.html", text=lesson[0])
-
+        
 # --- إعداد المفاتيح والعمل
 
 # 1. إعداد Google Gemini
