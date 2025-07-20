@@ -1079,7 +1079,7 @@ def unified_video_handler(message):
 \"\"\"{full_text}\"\"\"
 الناتج بصيغة JSON فقط:
 {{
-  "question": "ماذا سمعت في الفيديو؟",
+  "question": "🎧 #اختبار_الاستماع\n\nماذا سمعت في الفيديو؟",
   "options": ["", "", "", ""],
   "correct_option_id": 0
 }}"""
@@ -1091,7 +1091,7 @@ def unified_video_handler(message):
                 return
 
             # إرسال الفيديو والسؤال للقناة
-            bot.send_video(CHANNEL_ID, open(video_path, 'rb'), caption="🎧 فيديو تعليمي للاستماع")
+            bot.send_video(CHANNEL_ID, open(video_path, 'rb'), caption=" فيديو تعليمي للاستماع")
             bot.send_poll(
                 CHANNEL_ID,
                 question=quiz_json['question'],
