@@ -1025,17 +1025,96 @@ def handle_start(message):
 
 
 
-# ✅ استقبال فيديو من الأدمن فقط
+
+user_states = {}
+
+@bot.message_handler(commands=['quizvideo'])
+def ask_for_video(msg):
+    if msg.chat.type != "private":
+        return
+    user_states[msg.from_user.id] = "quiz"
+    bot.reply_to(msg, "🎥 أرسل الآن الفيديو الذي تريد إنشاء سؤال منه.")
+
 @bot.message_handler(content_types=['video'])
-def handle_video(message):
+def unified_video_handler(message):
     if not message.from_user or message.chat.type != "private":
         return
-    if message.from_user.id != ALLOWED_USER_ID:
+
+    uid = message.from_user.id
+    mode = user_states.get(uid)
+
+    # ✅ حالة QUIZ VIDEO
+    if mode == "quiz":
+        user_states.pop(uid, None)  # إزالة الحالة
+        if uid != ALLOWED_USER_ID:
+            bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
+            return
+
+        bot.reply_to(message, "⏳ جارٍ تحليل الفيديو وإنشاء سؤال...")
+        try:
+            # حفظ الفيديو مؤقتاً
+            file_info = bot.get_file(message.video.file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
+
+            temp_dir = "temp"
+            os.makedirs(temp_dir, exist_ok=True)
+            video_path = os.path.join(temp_dir, f"{message.message_id}.mp4")
+            audio_path = os.path.join(temp_dir, f"{message.message_id}.wav")
+
+            with open(video_path, "wb") as f:
+                f.write(downloaded_file)
+
+            # استخراج الصوت
+            clip = VideoFileClip(video_path)
+            clip.audio.write_audiofile(audio_path, fps=16000, nbytes=2, codec='pcm_s16le', ffmpeg_params=["-ac", "1"])
+
+            # التفريغ
+            full_text = transcribe_with_deepgram(audio_path) or transcribe_with_assembly(audio_path)
+            if not full_text:
+                bot.reply_to(message, "❌ فشل في تحويل الصوت إلى نص.")
+                return
+
+            # توليد سؤال
+            prompt = f"""أنشئ سؤال اختيار من متعدد باللغة العربية بناءً على النص التالي:
+\"\"\"{full_text}\"\"\"
+الناتج بصيغة JSON فقط:
+{{
+  "question": "ماذا سمعت في الفيديو؟",
+  "options": ["", "", "", ""],
+  "correct_option_id": 0
+}}"""
+            ai_raw = generate_gemini_response(prompt)
+            quiz_json = extract_json_from_string(ai_raw)
+
+            if not quiz_json:
+                bot.reply_to(message, "❌ فشل في توليد السؤال.")
+                return
+
+            # إرسال الفيديو والسؤال للقناة
+            bot.send_video(CHANNEL_ID, open(video_path, 'rb'), caption="🎧 فيديو تعليمي للاستماع")
+            bot.send_poll(
+                CHANNEL_ID,
+                question=quiz_json['question'],
+                options=quiz_json['options'],
+                type="quiz",
+                correct_option_id=quiz_json['correct_option_id'],
+                is_anonymous=False
+            )
+
+            os.remove(video_path)
+            os.remove(audio_path)
+
+        except Exception as e:
+            print("❌ Error (quiz video):", e)
+            bot.reply_to(message, "❌ حدث خطأ أثناء إنشاء السؤال من الفيديو.")
+        return
+
+    # ✅ الحالة الافتراضية (SRT + حفظ)
+    if uid != ALLOWED_USER_ID:
         bot.reply_to(message, "❌ هذا الأمر متاح فقط للأدمن.")
         return
 
     bot.reply_to(message, "📥 تم استلام الفيديو. جاري المعالجة...")
-
     try:
         file_info = bot.get_file(message.video.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -1052,34 +1131,27 @@ def handle_video(message):
 
             bot.send_document(message.chat.id, open(SRT_PATH, 'rb'), caption="✅ ملف الترجمة جاهز.")
 
-            # توليد رقم الدرس تلقائيًا
             with sqlite3.connect(DB_FILE) as conn:
                 c = conn.cursor()
                 c.execute("SELECT MAX(lesson_number) FROM lessons")
                 result = c.fetchone()
-                last_number = result[0] if result and result[0] else 0
-                new_number = last_number + 1
+                new_number = (result[0] if result and result[0] else 0) + 1
 
-            # تخزين مؤقت
             temp_data['lesson_number'] = new_number
             temp_data['lesson_id'] = str(uuid.uuid4())
             temp_data['srt_content'] = srt_content
-
-            # حفظ بعض البيانات المؤقتة
-            
             temp_data['video_file_id'] = message.video.file_id
 
-
-            # أزرار لنشر الفيديو
             markup = types.InlineKeyboardMarkup()
             markup.add(
                 types.InlineKeyboardButton("✅ نعم", callback_data="publish_video_yes"),
                 types.InlineKeyboardButton("❌ لا", callback_data="publish_video_no")
             )
             bot.send_message(message.chat.id, "📤 هل تريد نشر الفيديو في القناة الآن؟", reply_markup=markup)
-            
+
     except Exception as e:
-        bot.reply_to(message, f"❌ خطأ أثناء التنزيل أو المعالجة:\n{e}")
+        bot.reply_to(message, f"❌ خطأ أثناء المعالجة:\n{e}")
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "publish_video_yes")
@@ -2036,90 +2108,6 @@ def get_user_level(user_id):
         result = c.fetchone()
         return result[0] if result else None
         
-@bot.message_handler(commands=['quizvideo'])
-def ask_for_video(msg):
-    if msg.chat.type != "private":
-        return
-    bot.reply_to(msg, "🎥 أرسل الآن الفيديو الذي تريد إنشاء سؤال منه.")
-
-@bot.message_handler(content_types=['video'])
-def handle_video(msg):
-    try:
-        if msg.chat.type != "private":
-            return
-
-        if message.from_user.id != ALLOWED_USER_ID:
-            bot.reply_to(message, "❌ هذا الأمر مخصص فقط للأدمن.")
-        bot.reply_to(msg, "⏳ جارٍ معالجة الفيديو، الرجاء الانتظار...")
-
-        file_info = bot.get_file(msg.video.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-
-        temp_dir = "temp"
-        os.makedirs(temp_dir, exist_ok=True)
-        video_path = os.path.join(temp_dir, f"{msg.message_id}.mp4")
-        audio_path = os.path.join(temp_dir, f"{msg.message_id}.wav")
-
-        with open(video_path, "wb") as f:
-            f.write(downloaded_file)
-
-        # 🟡 استخراج الصوت باستخدام moviepy
-        try:
-            clip = VideoFileClip(video_path)
-            clip.audio.write_audiofile(audio_path, fps=16000, nbytes=2, codec='pcm_s16le', ffmpeg_params=["-ac", "1"])
-        except Exception as e:
-            bot.reply_to(msg, "❌ فشل في استخراج الصوت من الفيديو.")
-            print("Audio extract error:", e)
-            return
-
-        # 🟡 محاولة التفريغ باستخدام Deepgram
-        full_text = transcribe_with_deepgram(audio_path)
-
-        # إذا فشل، ننتقل إلى AssemblyAI
-        if not full_text:
-            full_text = transcribe_with_assembly(audio_path)
-
-        if not full_text:
-            bot.reply_to(msg, "❌ فشل في تحويل الصوت إلى نص.")
-            return
-
-        # 🧠 توليد سؤال من Gemini
-        prompt = f"""أنشئ سؤال اختيار من متعدد باللغة العربية بناءً على النص التالي المفرغ من فيديو تعليمي:
-\"\"\"{full_text}\"\"\"
-
-الناتج بصيغة JSON فقط:
-{{
-  "question": "ماذا سمعت في الفيديو؟",
-  "options": ["", "", "", ""],
-  "correct_option_id": 0
-}}"""
-        ai_raw = generate_gemini_response(prompt)
-        quiz_json = extract_json_from_string(ai_raw)
-
-        if not quiz_json:
-            bot.reply_to(msg, "❌ فشل في توليد السؤال.")
-            return
-
-        # 📤 إرسال الفيديو للقناة
-        bot.send_video(CHANNEL_ID, open(video_path, 'rb'), caption="🎧 فيديو تعليمي للاستماع")
-
-        # 🗳️ إرسال Poll
-        bot.send_poll(
-            CHANNEL_ID,
-            question=quiz_json['question'],
-            options=quiz_json['options'],
-            type="quiz",
-            correct_option_id=quiz_json['correct_option_id'],
-            is_anonymous=False
-        )
-
-        # 🧹 حذف الملفات
-        os.remove(video_path)
-        os.remove(audio_path)
-
-    except Exception as e:
-        print("❌ General error:", e)
-        bot.reply_to(msg, "❌ حدث خطأ أثناء معالجة الفيديو.")
 
 
 
