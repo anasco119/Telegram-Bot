@@ -348,14 +348,13 @@ def cancel_post(call):
 def reader(lesson_id):
     with sqlite3.connect("lessons.db") as conn:
         c = conn.cursor()
-        c.execute("SELECT content FROM lessons WHERE id = ?", (lesson_id,))
+        c.execute("SELECT content FROM text_lessons WHERE id = ?", (str(lesson_id),))  # تحويل id إلى str لأنه مخزن كنص
         lesson = c.fetchone()
 
         if lesson is None:
             return "❌ لم يتم العثور على هذا الدرس.", 404
 
-        return render_template("reader.html", text=lesson[0])            
-
+        return render_template("reader.html", text=lesson[0])
 
 # --- إعداد المفاتيح والعمل
 
