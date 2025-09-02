@@ -138,6 +138,60 @@ def init_db():
             logging.info(f"Database created or updated at: {os.path.abspath(DB_FILE)}")
     except Exception as e:
         logging.error(f"Database initialization error: {e}")
+import telebot
+import yt_dlp
+import os
+import zipfile
+
+
+
+@bot.message_handler(commands=["subs"])
+def download_subs(message):
+    try:
+        # استخراج الرابط
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2:
+            return bot.reply_to(message, "⚠️ الرجاء إرسال الأمر مع رابط قائمة التشغيل.\nمثال:\n/subs https://youtube.com/playlist?list=...")
+
+        playlist_url = parts[1].strip()
+        bot.reply_to(message, "⏳ جاري تحميل ملفات الترجمة...")
+
+        # إعدادات yt-dlp
+        ydl_opts = {
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,   # تحميل التلقائية إذا لم توجد الرسمية
+            "subtitleslangs": ["en"],
+            "subtitlesformat": "srt",
+            "outtmpl": "%(title)s.%(ext)s",
+        }
+
+        # تحميل الترجمات
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(playlist_url, download=True)
+
+        entries = info.get("entries", [info])
+
+        # تجهيز ملف zip
+        zip_filename = "subtitles.zip"
+        with zipfile.ZipFile(zip_filename, "w") as zipf:
+            for entry in entries:
+                title = entry.get("title")
+                for file in os.listdir("."):
+                    if file.startswith(title) and file.endswith(".srt"):
+                        zipf.write(file)
+                        os.remove(file)  # نحذف الملف بعد إضافته للـ zip
+                        break
+
+        # إرسال الملف المضغوط
+        with open(zip_filename, "rb") as f:
+            bot.send_document(message.chat.id, f, caption="📦 جميع ملفات الترجمة مضغوطة")
+
+        os.remove(zip_filename)  # تنظيف الملفات المؤقتة
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ حدث خطأ:\n{e}")
+
 
 
 
@@ -2279,7 +2333,7 @@ def set_webhook():
 
 if __name__ == "__main__":
     set_webhook()
-    generate_all_content_on_startup()
+    
     import_text_lessons()
     port = int(os.environ.get('PORT', 10000))  # Render يستخدم 10000
     app.run(host='0.0.0.0', port=port)
