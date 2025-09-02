@@ -1123,6 +1123,7 @@ def unified_video_handler(message):
             clip.audio.write_audiofile(audio_path, fps=16000, nbytes=2, codec='pcm_s16le', ffmpeg_params=["-ac", "1"])
 
             # التفريغ
+            
             full_text = transcribe_with_deepgram(audio_path) or transcribe_with_assembly(audio_path)
             if not full_text:
                 bot.reply_to(message, "❌ فشل في تحويل الصوت إلى نص.")
@@ -1152,7 +1153,7 @@ def unified_video_handler(message):
                 options=quiz_json['options'],
                 type="quiz",
                 correct_option_id=quiz_json['correct_option_id'],
-                is_anonymous=False
+                is_anonymous=True
             )
 
             os.remove(video_path)
