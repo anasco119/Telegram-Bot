@@ -2215,9 +2215,15 @@ def handle_start(message):
             show_lesson_index_by_tag(bot, message.chat.id)
 
         elif payload.startswith("lesson_"):
-            lesson_id = payload[len("lesson_"):]
-            show_flashcards(message.chat.id, lesson_id)
-
+            lesson_number = payload[len("lesson_"):]  # الرقم بعد lesson_
+            with sqlite3.connect(DB_FILE) as conn:
+                c = conn.cursor()
+                c.execute("SELECT id FROM lessons WHERE lesson_number = ?", (lesson_number,))
+                row = c.fetchone()
+                if not row:
+                     return bot.send_message(message.chat.id, "❌ لم يتم العثور على هذا الدرس.")
+                lesson_id = row[0]
+             show_flashcards(message.chat.id, lesson_id)
         elif payload.startswith("quiz_"):
             lesson_id = payload.replace("quiz_", "")
             start_quiz(message.chat.id, lesson_id, bot)
