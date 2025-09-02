@@ -2223,7 +2223,7 @@ def handle_start(message):
                 if not row:
                      return bot.send_message(message.chat.id, "❌ لم يتم العثور على هذا الدرس.")
                 lesson_id = row[0]
-             show_flashcards(message.chat.id, lesson_id)
+                show_flashcards(message.chat.id, lesson_id)
         elif payload.startswith("quiz_"):
             lesson_id = payload.replace("quiz_", "")
             start_quiz(message.chat.id, lesson_id, bot)
