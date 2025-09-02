@@ -52,3 +52,4 @@ groq
 python-dotenv
 imageio
 imageio-ffmpeg
+yt-dlp
